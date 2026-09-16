@@ -1,6 +1,7 @@
 """Locate ffmpeg / ffprobe binaries.
 
-Order: explicit override (Settings) → bundled ./bin → system PATH.
+Order: explicit override (Settings) → frozen-exe-adjacent bin/ →
+PyInstaller bundle bin/ → repo ./bin → system PATH → *_HOME env.
 """
 
 from __future__ import annotations
@@ -25,9 +26,17 @@ def _candidate(dirpath: Path, name: str) -> Path | None:
 
 
 def bundled_dir() -> Path:
-    # <repo>/bin and <repo>/src/video_cropper/bin and frozen sys._MEIPASS
-    meipass = getattr(sys, "_MEIPASS", None)
+    # Frozen one-file exe: <exe-dir>/bin lets users ship ffmpeg next to the
+    # executable (portable distribution without touching PATH).
+    # <repo>/bin and <repo>/src/video_cropper/bin cover dev checkouts,
+    # frozen sys._MEIPASS covers files baked in via --add-data.
     roots = []
+    if getattr(sys, "frozen", False):
+        try:
+            roots.append(Path(sys.executable).resolve().parent / "bin")
+        except Exception:
+            pass
+    meipass = getattr(sys, "_MEIPASS", None)
     if meipass:
         roots.append(Path(meipass) / "bin")
     here = Path(__file__).resolve()
