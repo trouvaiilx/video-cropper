@@ -79,7 +79,8 @@ Presets scale the **long side** preserving the crop aspect (always snapped even
 for 4:2:0 compatibility): `720p→1280 · 1080p→1920 · 1440p→2560 · 4K→3840`.
 **Original Crop** keeps crop pixels 1:1. Editing pixels directly implies **Custom**.
 Upscaling is never automatic — if the output is larger than the crop you get an
-explicit warning.
+explicit warning. Crop origin and dimensions are snapped down to even values
+at encode time (at most 1 px) as required by 4:2:0 H.264/H.265.
 
 ## Encoders
 
