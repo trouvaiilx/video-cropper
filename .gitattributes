@@ -1,0 +1,47 @@
+# Line endings: LF is canonical in the repository for all text files.
+# This keeps shell scripts executable on Linux/macOS even when the repo is
+# cloned on Windows, and keeps diffs stable across platforms.
+* text=auto
+
+*.py text eol=lf
+*.pyi text eol=lf
+*.toml text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf
+*.txt text eol=lf
+*.md text eol=lf
+*.rst text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.sh text eol=lf
+*.bash text eol=lf
+*.ps1 text eol=lf
+*.psm1 text eol=lf
+*.spec text eol=lf
+.gitattributes text eol=lf
+.gitignore text eol=lf
+
+# Binaries: never convert line endings, never diff as text.
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.icns binary
+*.mp4 binary
+*.mkv binary
+*.mov binary
+*.avi binary
+*.webm binary
+*.m4v binary
+
+# Build outputs and local caches never belong in source archives.
+# (They are also git-ignored and never committed.)
+/dist export-ignore
+/build export-ignore
+/.venv export-ignore
+/.pytest_cache export-ignore
