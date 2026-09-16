@@ -41,7 +41,36 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Could not install PyInstaller." }
   }
 
+  $Running = Get-Process -Name VideoCropper -ErrorAction SilentlyContinue
+  if ($Running) {
+    throw "VideoCropper.exe is running (PID $($Running.Id -join ', ')). Close it before rebuilding."
+  }
   if (Test-Path -LiteralPath $DistExe) { Remove-Item -LiteralPath $DistExe -Force }
+
+  # Optional artwork: assets\logo.png becomes the window icon (bundled data).
+  # The exe file icon additionally needs .ico: a ready-made assets\logo.ico
+  # wins; otherwise the PNG is converted on the fly (stdlib only), which
+  # requires it to be 256x256 or smaller - ICO entries cannot be larger.
+  $LogoPng = Join-Path $Root "assets\logo.png"
+  $IconArgs = @()
+  $DataArgs = @()
+  if (Test-Path -LiteralPath $LogoPng) {
+    $DataArgs = @("--add-data", "$LogoPng;assets")
+    $LogoIco = Join-Path $Root "assets\logo.ico"
+    if (Test-Path -LiteralPath $LogoIco) {
+      $IconArgs = @("--icon", $LogoIco)
+    } else {
+      $IcoOut = Join-Path ([System.IO.Path]::GetTempPath()) "VideoCropper_logo.ico"
+      & $VenvPython (Join-Path $Root "tools\png_to_ico.py") $LogoPng $IcoOut
+      if ($LASTEXITCODE -eq 0) {
+        $IconArgs = @("--icon", $IcoOut)
+      } else {
+        Write-Warning "No exe icon: place a 256x256 (or smaller) logo.png or a multi-size logo.ico in assets\."
+      }
+    }
+  } else {
+    Write-Host "No assets\logo.png found - building without icon." -ForegroundColor Yellow
+  }
 
   $PyArgs = @(
     "-m", "PyInstaller",
@@ -52,7 +81,7 @@ try {
     "--collect-submodules", "video_cropper",
     "--exclude-module", "tkinter",
     "src/video_cropper/__main__.py"
-  )
+  ) + $IconArgs + $DataArgs
   Write-Host "==> Running PyInstaller" -ForegroundColor Cyan
   & $VenvPython @PyArgs
   if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed (exit $LASTEXITCODE)." }

@@ -1,3 +1,5 @@
+<img src="assets/logo.png" width="120" alt="Video Cropper logo">
+
 # Video Cropper
 
 Minimalist, production-quality desktop utility for visually cropping video frames on Windows.
@@ -78,6 +80,18 @@ ship `VideoCropper.exe` with `bin\ffmpeg.exe` + `bin\ffprobe.exe`) → system
 `PATH`. macOS note: the bundle is ad-hoc signed — on first launch,
 right-click → Open if Gatekeeper blocks it. `dist/` and `build/` are
 git-ignored; only source is committed.
+
+### Application icon
+
+Drop your artwork at **`assets/logo.png`** (repo root; committed like source).
+It is used in three places: this README header, the app window/taskbar icon
+at runtime, and — on Windows — the exe file icon. The exe icon needs `.ico`
+format: provide **`assets/logo.ico`** (multi-size, preferred) or keep
+`logo.png` at 256 px or smaller so the build can convert it on the fly with
+`tools/png_to_ico.py` (stdlib only, no extra dependency). A larger PNG still
+works for the window icon and README; only the exe file icon falls back to
+the default. macOS bundles additionally pick up `assets/logo.icns` when
+present; Linux uses the PNG.
 
 ## Workflow
 

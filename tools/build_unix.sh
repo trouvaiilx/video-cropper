@@ -40,15 +40,37 @@ elif [ -f "$ROOT/dist/VideoCropper" ]; then
   rm -f "$ROOT/dist/VideoCropper"
 fi
 
+# Optional artwork: assets/logo.png is bundled for the window icon.
+# macOS bundle icon needs .icns (not auto-generated); Linux uses the PNG.
+ICON_ARGS=()
+DATA_ARGS=()
+if [ -f "$ROOT/assets/logo.png" ]; then
+  DATA_ARGS=(--add-data "$ROOT/assets/logo.png:assets")
+  if [ -f "$ROOT/assets/logo.icns" ]; then
+    ICON_ARGS=(--icon "$ROOT/assets/logo.icns")
+  else
+    echo "No assets/logo.icns found - bundling logo.png for the window icon only."
+  fi
+else
+  echo "No assets/logo.png found - building without icon."
+fi
+
+# Function wrapper (not inline ${ARR[@]}): keeps `set -u` safe on old bash
+# such as macOS 3.2, where expanding an empty array is an error.
+run_pyinstaller() {
+  "$VENV_PY" -m PyInstaller \
+    --noconfirm --clean \
+    --name "VideoCropper" \
+    --onefile --windowed \
+    --paths "src" \
+    --collect-submodules "video_cropper" \
+    --exclude-module "tkinter" \
+    "$@" \
+    "src/video_cropper/__main__.py"
+}
+
 echo "==> Running PyInstaller"
-"$VENV_PY" -m PyInstaller \
-  --noconfirm --clean \
-  --name "VideoCropper" \
-  --onefile --windowed \
-  --paths "src" \
-  --collect-submodules "video_cropper" \
-  --exclude-module "tkinter" \
-  "src/video_cropper/__main__.py"
+run_pyinstaller "${ICON_ARGS[@]}" "${DATA_ARGS[@]}"
 
 echo ""
 if [ "$(uname)" = "Darwin" ]; then
