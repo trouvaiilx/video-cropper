@@ -78,9 +78,10 @@ class MainWindow(QMainWindow):
         self.act_open.triggered.connect(self.open_file_dialog)
         file_menu.addAction(self.act_open)
         file_menu.addSeparator()
-        act_exit = QAction("E&xit", self)
-        act_exit.triggered.connect(self.close)
-        file_menu.addAction(act_exit)
+        self.act_exit = QAction("E&xit", self)
+        self.act_exit.setShortcut(QKeySequence("Ctrl+Shift+Q"))
+        self.act_exit.triggered.connect(self.close)
+        file_menu.addAction(self.act_exit)
 
         view_menu = self.menuBar().addMenu("&View")
         self.act_fit = QAction("&Fit", self)

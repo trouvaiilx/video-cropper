@@ -122,6 +122,7 @@ present; Linux uses the PNG.
 | Alt + wheel | Scroll vertically in fine steps |
 | Ctrl+0 / Ctrl+= / Ctrl− | Fit / zoom in / zoom out |
 | Ctrl+O | Open video |
+| Ctrl+Shift+Q | Exit the application |
 | X / Y / W / H spinboxes | Exact crop in source pixels (synced both ways) |
 
 Crop coordinates are always stored in **source display pixels** (post-rotation,

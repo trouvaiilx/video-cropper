@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
     QGroupBox, QHBoxLayout, QLabel, QProgressBar, QPushButton,
     QVBoxLayout, QWidget,
@@ -26,6 +27,7 @@ class ProgressPanel(QGroupBox):
         self.start_btn = QPushButton("Start")
         self.start_btn.setObjectName("Primary")
         self.start_btn.setToolTip("Crop and encode to the output file (Ctrl+R).")
+        self.start_btn.setShortcut(QKeySequence("Ctrl+R"))
         self.start_btn.clicked.connect(self.start_requested.emit)
         self.cancel_btn = QPushButton("Cancel")
         self.cancel_btn.setToolTip("Stop encoding and remove the partial output.")
