@@ -17,31 +17,67 @@ Built with **Python 3 + PySide6 (Qt 6) + FFmpeg**.
 
 ## Setup (isolated virtual environment — always)
 
+One command per OS — creates `.venv`, installs the project with dev + build
+extras, and checks FFmpeg:
+
 ```powershell
-# 1. Create the project-local environment
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -File tools\setup_windows.ps1
+```
+
+```bash
+# Linux / macOS
+./tools/setup_unix.sh
+```
+
+Then:
+
+```powershell
+.venv\Scripts\Activate.ps1   # Windows PowerShell (cmd.exe: .venv\Scripts\activate)
+# source .venv/bin/activate  # Linux / macOS
+python -m pytest -q
+python -m video_cropper
+```
+
+Manual equivalent (what the scripts do):
+
+```powershell
 python -m venv .venv
-
-# 2. Activate it (PowerShell)
 .venv\Scripts\Activate.ps1
-# cmd.exe: .venv\Scripts\activate
-
-# 3. Install the project + dev tools
 python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
-
-# 4. Verify the interpreter and FFmpeg
+python -m pip install -e ".[dev,build]"
 python -c "import sys; print(sys.executable)"   # → ...\video-cropper\.venv\Scripts\python.exe
 ffmpeg -version
 ffprobe -version
-
-# 5. Run
-python -m video_cropper
-
-# 6. Tests
-python -m pytest -q
 ```
 
+Linux note: PySide6 needs X11/Wayland client libs
+(`sudo apt install libegl1 libxkbcommon0 libdbus-1-3`) and `python3-venv`
+(`sudo apt install python3-venv`). macOS: `brew install python ffmpeg`.
+
 Never install project dependencies into the global Python. `.venv/` is git-ignored.
+
+## Single-file executable (no console window)
+
+The app bundles into one windowed executable via PyInstaller (tests run first
+as a build gate; FFmpeg stays external on purpose):
+
+```powershell
+# Windows → dist\VideoCropper.exe
+powershell -ExecutionPolicy Bypass -File tools\build_windows.ps1
+```
+
+```bash
+# Linux → dist/VideoCropper | macOS → dist/VideoCropper.app
+./tools/build_unix.sh
+```
+
+The exe has no console window. It still needs FFmpeg + ffprobe, resolved as:
+`Tools → Settings` override → `bin\` folder next to the exe (portable:
+ship `VideoCropper.exe` with `bin\ffmpeg.exe` + `bin\ffprobe.exe`) → system
+`PATH`. macOS note: the bundle is ad-hoc signed — on first launch,
+right-click → Open if Gatekeeper blocks it. `dist/` and `build/` are
+git-ignored; only source is committed.
 
 ## Workflow
 
@@ -114,15 +150,23 @@ FFmpeg command — one click copies it for bug reports.
 ## Architecture
 
 ```
-src/video_cropper/
-  app/        application factory + MainWindow (layout & wiring only)
-  models/     CropConfig · VideoMetadata · ProcessingJob  ← source of truth
-  ffmpeg/     resolver · probe · preview · encoder · command_builder · process · progress
-  graphics/   CropScene · CropView · CropRectItem · handles · dim overlay · guides
-  ui/         theme · crop/output/metadata/progress panels · dialogs
-  services/   video_service (worker thread) · processing_service · settings_service
-  utils/      coordinates · validation · time · paths
-tests/        crop model · coordinates · ratios · ffmpeg commands · progress · output sizes · orientation
+video_cropper/
+  pyproject.toml   Python + PySide6 + dev/build extras
+  .gitattributes   LF line endings, binary handling, archive exclusions
+  tools/
+    setup_windows.ps1  one-command dev setup (venv + deps + FFmpeg check)
+    setup_unix.sh      same for Linux / macOS
+    build_windows.ps1  test gate + one-file windowed dist\VideoCropper.exe
+    build_unix.sh      same → dist/VideoCropper[.app]
+  src/video_cropper/
+    app/        application factory + MainWindow (layout & wiring only)
+    models/     CropConfig · VideoMetadata · ProcessingJob  ← source of truth
+    ffmpeg/     resolver · probe · preview · encoder · command_builder · process · progress
+    graphics/   CropScene · CropView · CropRectItem · handles · dim overlay · guides
+    ui/         theme · crop/output/metadata/progress panels · dialogs
+    services/   video_service (worker thread) · processing_service · settings_service
+    utils/      coordinates · validation · time · paths
+  tests/        crop · coordinates · ratios · ffmpeg commands · progress · sizes · orientation · resolver
 ```
 
 Rules: the GUI never builds FFmpeg syntax (only `command_builder` does);
@@ -139,6 +183,7 @@ See `ARCHITECTURE.md` for the data-flow diagram and failure-point analysis.
 | NVENC entries unavailable | Your FFmpeg build lacks NVENC or no NVIDIA GPU/driver — use CPU H.264 |
 | Output is rotated wrong | Source had exotic rotation metadata — file an issue with Tools → Diagnostics output |
 | 10-bit source, 8-bit-looking output | libx264 builds are usually 8-bit; H.265/NVENC preserves depth better |
+| Built exe says “FFmpeg could not be found” | The exe does not bundle FFmpeg — put it on PATH, set Tools → Settings, or ship `bin\` next to the exe |
 
 Errors show a one-line explanation; technical details stay expandable in the
 dialog instead of a raw traceback.
