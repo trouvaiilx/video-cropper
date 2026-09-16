@@ -95,7 +95,9 @@ present; Linux uses the PNG.
 
 ## Workflow
 
-1. **Open Video** (`Ctrl+O`) or drag a video file onto the window.
+1. **Open Video** (`Ctrl+O`) or drag a video file anywhere onto the window —
+   canvas included. A “Drop video file here” hint appears over the preview
+   while a video file hovers above it.
 2. Inspect source metadata (frame size, duration, fps, codecs) in the **Source** panel.
 3. **Left-drag** on the preview to draw the region to keep; drag inside to move,
    drag the square handles to resize.

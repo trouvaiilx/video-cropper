@@ -29,11 +29,12 @@ from video_cropper.ui.crop_controls import CropControls
 from video_cropper.ui.dialogs import (
     DiagnosticsDialog, SettingsDialog, ask_overwrite, build_diagnostics, show_error,
 )
+from video_cropper.ui.drop_overlay import DropOverlay
 from video_cropper.ui.metadata_panel import MetadataPanel
 from video_cropper.ui.output_controls import OutputControls
 from video_cropper.ui.progress_panel import ProgressPanel
 from video_cropper.utils.coordinates import PreviewMapping
-from video_cropper.utils.paths import is_video_file, suggest_output_path
+from video_cropper.utils.paths import first_droppable_path, suggest_output_path
 from video_cropper.utils.time import format_seconds
 
 _APP_FILTER = "Videos (*.mp4 *.mkv *.mov *.avi *.webm *.m4v *.mpg *.mpeg *.ts *.m2ts *.wmv *.flv *.ogv);;All files (*)"
@@ -115,6 +116,7 @@ class MainWindow(QMainWindow):
 
         # Toolbar (flat, no decoration)
         toolbar = QToolBar("Main", self)
+        toolbar.setObjectName("MainToolBar")
         toolbar.setMovable(False)
         toolbar.addAction(self.act_open)
         toolbar.addAction(self.act_fit)
@@ -132,6 +134,8 @@ class MainWindow(QMainWindow):
         self.scene.set_guides(True, self.act_thirds.isChecked())
         self.view = CropView(self.scene, self)
         self.view.setMinimumSize(480, 360)
+        self.drop_overlay = DropOverlay(self.view)
+        self.view.set_drop_overlay(self.drop_overlay)
         splitter.addWidget(self.view)
 
         side = QWidget(self)
@@ -170,6 +174,9 @@ class MainWindow(QMainWindow):
         self.view.crop_preview_changed.connect(self._on_scene_crop)
         self.view.zoom_changed.connect(
             lambda z: self.zoom_label.setText(f"Zoom: {z * 100:.0f}%"))
+        self.view.video_drag_entered.connect(self._show_drop_hint)
+        self.view.video_drag_left.connect(self._hide_drop_hint)
+        self.view.video_file_dropped.connect(self._open_dropped_file)
 
         self.crop_controls.ratio_changed.connect(self._on_ratio)
         self.crop_controls.values_changed.connect(self._on_spin_values)
@@ -524,25 +531,49 @@ class MainWindow(QMainWindow):
             self.progress.start_btn.setEnabled(True)
 
     # -- drag & drop / close ----------------------------------------------------------------------
+    @staticmethod
+    def _drag_path(event) -> str | None:
+        mime = event.mimeData()
+        return first_droppable_path(mime.urls() if mime.hasUrls() else [])
+
+    def _show_drop_hint(self) -> None:
+        self.view.sync_drop_overlay()
+        self.drop_overlay.show()
+        self.drop_overlay.raise_()
+
+    def _hide_drop_hint(self) -> None:
+        self.drop_overlay.hide()
+
+    def _open_dropped_file(self, path: str) -> None:
+        if self.processing.is_running:
+            show_error(self, "Busy", "Stop the current encoding before opening another video.")
+            return
+        self.open_path(path)
+
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # noqa: N802
-        urls = event.mimeData().urls() if event.mimeData().hasUrls() else []
-        if len(urls) == 1 and is_video_file(urls[0].toLocalFile()):
-            event.acceptProposedAction()
-        else:
+        if self._drag_path(event) is None:
             event.ignore()
+            return
+        event.acceptProposedAction()
+        self._show_drop_hint()
+
+    def dragMoveEvent(self, event) -> None:  # noqa: N802
+        if self._drag_path(event) is None:
+            event.ignore()
+            return
+        event.acceptProposedAction()
+
+    def dragLeaveEvent(self, event) -> None:  # noqa: N802
+        self._hide_drop_hint()
 
     def dropEvent(self, event: QDropEvent) -> None:  # noqa: N802
-        urls = event.mimeData().urls() if event.mimeData().hasUrls() else []
-        if urls:
-            local = urls[0].toLocalFile()
-            if local:
-                if self.processing.is_running:
-                    show_error(self, "Busy", "Stop the current encoding before opening another video.")
-                    return
-                self.open_path(local)
-                event.acceptProposedAction()
-                return
-        event.ignore()
+        path = self._drag_path(event)
+        self._hide_drop_hint()
+        if path is None:
+            event.ignore()
+            return
+        event.acceptProposedAction()
+        self._open_dropped_file(path)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         if self.processing.is_running:

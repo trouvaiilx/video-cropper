@@ -18,6 +18,7 @@ from PySide6.QtWidgets import QGraphicsView
 
 from video_cropper.graphics.crop_handles import CURSORS, HANDLE_NAMES, hit_handle, resize_with_handle
 from video_cropper.graphics.crop_scene import CropScene
+from video_cropper.utils.paths import first_droppable_path
 
 _MIN_CROP = 4.0
 # Scrollbar pixels per wheel notch (120 eighths of a degree).
@@ -41,11 +42,18 @@ def accumulate_wheel(eighths: float, px_per_notch: float, remainder: float) -> t
 class CropView(QGraphicsView):
     crop_preview_changed = Signal(object)  # QRectF in scene coords
     zoom_changed = Signal(float)           # absolute scale
+    video_drag_entered = Signal()          # a video-file drag entered the canvas
+    video_drag_left = Signal()             # the drag left the canvas
+    video_file_dropped = Signal(str)       # local path of the dropped video
 
     def __init__(self, scene: CropScene, parent=None) -> None:
         super().__init__(scene, parent)
         self._scene = scene
         self.setMouseTracking(True)
+        # Drag events land on the viewport child: both levels must accept
+        # drops or canvas drags never reach these handlers.
+        self.setAcceptDrops(True)
+        self.viewport().setAcceptDrops(True)
         self.setRenderHints(self.renderHints())
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.NoAnchor)
@@ -63,6 +71,20 @@ class CropView(QGraphicsView):
         self._ratio_lock: float | None = None
         self._min_scale = 0.05
         self._wheel_remainder = {"h": 0.0, "v": 0.0}
+        self._drop_overlay = None  # QWidget set by the host window; kept untyped (ui layer)
+
+    # -- drop-hint overlay slot --------------------------------------------------
+    def set_drop_overlay(self, overlay) -> None:
+        self._drop_overlay = overlay
+        self._sync_drop_overlay()
+
+    def sync_drop_overlay(self) -> None:
+        """Fit the overlay to the canvas. Called before every show."""
+        self._sync_drop_overlay()
+
+    def _sync_drop_overlay(self) -> None:
+        if self._drop_overlay is not None:
+            self._drop_overlay.setGeometry(self.viewport().geometry())
 
     # -- ratio lock ----------------------------------------------------------
     def set_ratio_lock(self, value: float | None) -> None:
@@ -153,6 +175,37 @@ class CropView(QGraphicsView):
             bar.setValue(bar.value() - step)
         self._clamp_view()
         event.accept()
+
+    # -- drag & drop (canvas is the primary drop target) ---------------------------
+    @staticmethod
+    def _droppable(event) -> str | None:
+        mime = event.mimeData()
+        return first_droppable_path(mime.urls() if mime.hasUrls() else [])
+
+    def dragEnterEvent(self, event) -> None:  # noqa: N802, DND
+        if self._droppable(event) is None:
+            event.ignore()
+            return
+        event.acceptProposedAction()
+        self.video_drag_entered.emit()
+
+    def dragMoveEvent(self, event) -> None:  # noqa: N802, DND
+        if self._droppable(event) is None:
+            event.ignore()
+            return
+        event.acceptProposedAction()
+
+    def dragLeaveEvent(self, event) -> None:  # noqa: N802, DND
+        self.video_drag_left.emit()
+        super().dragLeaveEvent(event)
+
+    def dropEvent(self, event) -> None:  # noqa: N802, DND
+        path = self._droppable(event)
+        if path is None:
+            event.ignore()
+            return
+        event.acceptProposedAction()
+        self.video_file_dropped.emit(path)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         if event.button() == Qt.MouseButton.RightButton and self._scene.has_image():
@@ -345,3 +398,4 @@ class CropView(QGraphicsView):
         super().resizeEvent(event)
         # Keep content clamped on window resize; do not auto-refit (zoom is user's).
         self._clamp_view()
+        self._sync_drop_overlay()

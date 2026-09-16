@@ -15,6 +15,24 @@ def is_video_file(path: str | os.PathLike) -> bool:
     return Path(str(path)).suffix.lower() in VIDEO_EXTENSIONS
 
 
+def first_droppable_path(urls) -> str | None:
+    """Local path of a droppable drag, else None.
+
+    Exactly one local video-file URL is droppable. Takes Qt QUrls
+    (duck-typed: only .toLocalFile() is used); needs no QApplication,
+    so both the main window and the graphics view share this one rule.
+    """
+    if not urls or len(urls) != 1:
+        return None
+    try:
+        local = urls[0].toLocalFile()
+    except Exception:
+        return None
+    if local and is_video_file(local):
+        return local
+    return None
+
+
 def suggest_output_path(input_path: str | os.PathLike, suffix: str = "_cropped") -> Path:
     """ foo/bar.mp4 -> foo/bar_cropped.mp4 (never overwrites input)."""
     p = Path(str(input_path))
