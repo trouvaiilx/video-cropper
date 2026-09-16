@@ -206,6 +206,10 @@ class CropView(QGraphicsView):
             return
         event.acceptProposedAction()
         self.video_file_dropped.emit(path)
+        # A drop ends the drag session, but Qt does not guarantee a
+        # dragLeaveEvent afterwards: close the hover state explicitly,
+        # otherwise the drop hint would stay visible over the video.
+        self.video_drag_left.emit()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         if event.button() == Qt.MouseButton.RightButton and self._scene.has_image():

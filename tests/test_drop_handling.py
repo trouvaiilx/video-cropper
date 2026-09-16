@@ -72,14 +72,17 @@ def test_canvas_ignores_non_video(qapp):
     assert not ev.isAccepted() and seen == []
 
 
-def test_canvas_drop_emits_path(qapp):
+def test_canvas_drop_ends_hover(qapp):
     view = _view(qapp)
-    got: list = []
-    view.video_file_dropped.connect(got.append)
+    events: list = []
+    view.video_file_dropped.connect(lambda p: events.append(("dropped", p)))
+    view.video_drag_left.connect(lambda: events.append(("left",)))
     mime = _mime("clip.mp4")
     ev = _drop(mime)
     view.dropEvent(ev)
-    assert ev.isAccepted() and got == ["C:/videos/clip.mp4"]
+    assert ev.isAccepted()
+    assert ("dropped", "C:/videos/clip.mp4") in events
+    assert ("left",) in events  # drag session over: hint must close
 
 
 def test_canvas_drop_ignores_non_video(qapp):
@@ -117,6 +120,26 @@ def test_window_wiring_shows_hint_on_canvas_hover(qapp):
         assert not window.drop_overlay.isHidden()
         assert window.drop_overlay.text() == "Drop video file here"
         window.view.dragLeaveEvent(QDragLeaveEvent())
+        assert window.drop_overlay.isHidden()
+    finally:
+        window.close()
+
+
+def test_window_wiring_hides_hint_on_canvas_drop(qapp, monkeypatch):
+    # Regression test: dropping on the canvas used to leave the hint visible
+    # because only MainWindow.dropEvent hid it, which canvas drops bypass.
+    # _open_dropped_file is stubbed: a real open would probe and may go modal.
+    from video_cropper.app.main_window import MainWindow
+    window = MainWindow()
+    opened: list = []
+    monkeypatch.setattr(window, "_open_dropped_file", opened.append)
+    try:
+        mime = _mime("clip.mp4")
+        window.view.dragEnterEvent(_enter(mime))
+        assert not window.drop_overlay.isHidden()
+        mime2 = _mime("clip.mp4")
+        window.view.dropEvent(_drop(mime2))
+        assert opened == ["C:/videos/clip.mp4"]
         assert window.drop_overlay.isHidden()
     finally:
         window.close()
