@@ -29,20 +29,40 @@ class CropScene(QGraphicsScene):
         self._crop = CropRectItem()
         self.addItem(self._crop)
         self._image_rect = QRectF()
+        self._pad = 0.0  # scene-unit margin around the frame (overscroll room)
 
     # -- content -----------------------------------------------------------
     def set_preview(self, pixmap: QPixmap) -> None:
         self._pixmap_item.setPixmap(pixmap)
         w, h = pixmap.width(), pixmap.height()
         self._image_rect = QRectF(0, 0, max(0, w), max(0, h))
-        self.setSceneRect(self._image_rect)
+        self._update_scene_rect()
         self._dim.set_rects(self._image_rect, self._crop.rect())
         self.update()
+
+    def set_padding(self, pad: float) -> None:
+        """Scene-unit margin around the frame enabling bounded overscroll.
+
+        Without a padded scene rect, Qt's scrollbar range pins the frame edge
+        exactly to the viewport edge and no clamp math can ever show padding.
+        """
+        pad = max(0.0, float(pad))
+        if abs(pad - self._pad) < 1e-9:
+            return
+        self._pad = pad
+        self._update_scene_rect()
+
+    def _update_scene_rect(self) -> None:
+        if self._image_rect.isNull() or self._image_rect.width() <= 0:
+            self.setSceneRect(QRectF())
+        else:
+            p = self._pad
+            self.setSceneRect(self._image_rect.adjusted(-p, -p, p, p))
 
     def clear_preview(self) -> None:
         self._pixmap_item.setPixmap(QPixmap())
         self._image_rect = QRectF()
-        self.setSceneRect(QRectF())
+        self._update_scene_rect()
         self.set_crop_rect(QRectF())
 
     def has_image(self) -> bool:

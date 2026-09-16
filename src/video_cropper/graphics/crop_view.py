@@ -121,6 +121,15 @@ class CropView(QGraphicsView):
     def set_ratio_lock(self, value: float | None) -> None:
         self._ratio_lock = value
 
+    def _update_padding(self) -> None:
+        """Keep the scene-rect margin at a constant screen size.
+
+        Called after every transform change: without it the scrollbar range
+        (derived from the scene rect) would pin the frame to the viewport.
+        """
+        scale = max(1e-6, abs(self.transform().m11()))
+        self._scene.set_padding(_EDGE_MARGIN_PX / scale)
+
     # -- zoom -----------------------------------------------------------------
     def absolute_zoom(self) -> float:
         return self.transform().m11() if not self.transform().isIdentity() else self._zoom
@@ -133,6 +142,7 @@ class CropView(QGraphicsView):
         self._zoom = z
         self._fit_scale = z
         self._min_scale = z  # never zoom out beyond fit
+        self._update_padding()
         self._clamp_view()
         self.zoom_changed.emit(z)
 
@@ -147,6 +157,7 @@ class CropView(QGraphicsView):
             anchor_view_pos = self.viewport().rect().center()
         anchor_scene = self.mapToScene(anchor_view_pos)
         self.setTransform(self.transform().scale(new / cur, new / cur))
+        self._update_padding()
         # Keep cursor anchored on the same scene point.
         new_view = self.mapFromScene(anchor_scene)
         dx = new_view.x() - anchor_view_pos.x()
