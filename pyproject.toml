@@ -15,6 +15,11 @@ dev = [
   "pytest>=8",
   "pytest-qt>=4",
 ]
+build = [
+  # Single-file executable packaging (PyInstaller). FFmpeg/ffprobe stay
+  # external binaries on purpose — see tools/build_windows.ps1.
+  "pyinstaller>=6",
+]
 
 [project.scripts]
 video-cropper = "video_cropper.__main__:main"
