@@ -87,7 +87,8 @@ git-ignored; only source is committed.
    drag the square handles to resize.
 4. Pick an **aspect ratio** (or type a custom `W:H`); fine-tune **X / Y / Width / Height**.
 5. Zoom with **Ctrl + wheel** (cursor-centered, up to 800%), pan with **right-drag**,
-   reset with **Fit** (`Ctrl+0`).
+   scroll horizontally with **Shift + wheel**, scroll vertically in fine steps
+   with **Alt + wheel**, reset with **Fit** (`Ctrl+0`).
 6. Choose output **Size** and **Encoder**, set the output file.
 7. **Start** (`Ctrl+R`) — watch %, position, speed and ETA. **Cancel** any time:
    FFmpeg is terminated and the partial output is removed.
@@ -101,6 +102,8 @@ git-ignored; only source is committed.
 | Left-drag (square handle) | Resize crop |
 | Right-drag | Pan (when zoomed) |
 | Ctrl + wheel | Zoom, centered on cursor (fit … 800%) |
+| Shift + wheel | Scroll horizontally |
+| Alt + wheel | Scroll vertically in fine steps |
 | Ctrl+0 / Ctrl+= / Ctrl− | Fit / zoom in / zoom out |
 | Ctrl+O | Open video |
 | X / Y / W / H spinboxes | Exact crop in source pixels (synced both ways) |

@@ -3,6 +3,8 @@
 - Left drag: create / move / resize crop (never conflicts with pan/zoom)
 - Right drag: pan (clamped)
 - Ctrl + wheel: cursor-centered zoom, fit-scale minimum, 800% maximum
+- Shift + wheel: horizontal scroll
+- Alt + wheel: vertical scroll in fine steps (precision work)
 
 Emits crop_preview_changed(QRectF) in *scene* (preview-pixel) coords and
 zoom_changed(float) as absolute scale (1.0 == 100%).
@@ -18,6 +20,22 @@ from video_cropper.graphics.crop_handles import CURSORS, HANDLE_NAMES, hit_handl
 from video_cropper.graphics.crop_scene import CropScene
 
 _MIN_CROP = 4.0
+# Scrollbar pixels per wheel notch (120 eighths of a degree).
+_FULL_NOTCH_PX = 48.0
+_SMOOTH_NOTCH_PX = 12.0
+
+
+def accumulate_wheel(eighths: float, px_per_notch: float, remainder: float) -> tuple[int, float]:
+    """Convert wheel eighths-of-a-degree into integer scrollbar pixels.
+
+    The fractional remainder accumulates across events so high-resolution
+    (trackpad) deltas stay smooth instead of being rounded away. Positive
+    eighths (wheel up) yield a positive step; callers move the scrollbar by
+    ``-step`` to match the native scroll direction.
+    """
+    total = remainder + eighths / 120.0 * px_per_notch
+    step = int(total)  # truncates toward zero: symmetric in both directions
+    return step, total - step
 
 
 class CropView(QGraphicsView):
@@ -44,6 +62,7 @@ class CropView(QGraphicsView):
         self._fit_scale = 1.0
         self._ratio_lock: float | None = None
         self._min_scale = 0.05
+        self._wheel_remainder = {"h": 0.0, "v": 0.0}
 
     # -- ratio lock ----------------------------------------------------------
     def set_ratio_lock(self, value: float | None) -> None:
@@ -93,12 +112,47 @@ class CropView(QGraphicsView):
 
     # -- mouse -----------------------------------------------------------------
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802
-        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            factor = 1.15 if event.angleDelta().y() > 0 else 1 / 1.15
+        mods = event.modifiers()
+        if mods & Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y() or event.angleDelta().x()
+            factor = 1.15 if delta > 0 else 1 / 1.15
             self.zoom_step(factor, event.position().toPoint())
             event.accept()
+            return
+        if not self._scene.has_image():
+            super().wheelEvent(event)
+            return
+        if mods & Qt.KeyboardModifier.ShiftModifier:
+            self._wheel_scroll(Qt.Orientation.Horizontal, event, smooth=False)
+        elif mods & Qt.KeyboardModifier.AltModifier:
+            self._wheel_scroll(Qt.Orientation.Vertical, event, smooth=True)
         else:
             super().wheelEvent(event)
+            self._clamp_view()
+
+    def _wheel_scroll(self, orientation: Qt.Orientation, event: QWheelEvent,
+                      smooth: bool) -> None:
+        ang = event.angleDelta()
+        if orientation == Qt.Orientation.Horizontal:
+            eighths = ang.x() or ang.y()  # plain wheels report y-ticks; map them to x
+        else:
+            eighths = ang.y() or ang.x()
+        if not eighths:
+            event.ignore()
+            return
+        key = "h" if orientation == Qt.Orientation.Horizontal else "v"
+        step, remainder = accumulate_wheel(
+            float(eighths),
+            _SMOOTH_NOTCH_PX if smooth else _FULL_NOTCH_PX,
+            self._wheel_remainder[key],
+        )
+        self._wheel_remainder[key] = remainder
+        bar = (self.horizontalScrollBar() if orientation == Qt.Orientation.Horizontal
+               else self.verticalScrollBar())
+        if step:
+            bar.setValue(bar.value() - step)
+        self._clamp_view()
+        event.accept()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         if event.button() == Qt.MouseButton.RightButton and self._scene.has_image():
