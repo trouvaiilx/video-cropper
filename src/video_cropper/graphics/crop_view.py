@@ -5,6 +5,7 @@
 - Ctrl + wheel: cursor-centered zoom, fit-scale minimum, 800% maximum
 - Shift + wheel: horizontal scroll
 - Alt + wheel: vertical scroll in fine steps (precision work)
+- Overscroll padding (~32 screen px) keeps edge handles grabbable at high zoom
 
 Emits crop_preview_changed(QRectF) in *scene* (preview-pixel) coords and
 zoom_changed(float) as absolute scale (1.0 == 100%).
@@ -24,6 +25,10 @@ _MIN_CROP = 4.0
 # Scrollbar pixels per wheel notch (120 eighths of a degree).
 _FULL_NOTCH_PX = 48.0
 _SMOOTH_NOTCH_PX = 12.0
+# Breathing room kept between the frame and the viewport edge, in screen px.
+# Lets edge handles stay fully visible and grabbable at high zoom instead of
+# being pinned half-clipped against the panel/window border.
+_EDGE_MARGIN_PX = 32.0
 
 
 def accumulate_wheel(eighths: float, px_per_notch: float, remainder: float) -> tuple[int, float]:
@@ -37,6 +42,32 @@ def accumulate_wheel(eighths: float, px_per_notch: float, remainder: float) -> t
     total = remainder + eighths / 120.0 * px_per_notch
     step = int(total)  # truncates toward zero: symmetric in both directions
     return step, total - step
+
+
+def clamp_translation(view: QRectF, img: QRectF, margin: float) -> tuple[float, float]:
+    """Scene-unit translation keeping the view near the frame. Pure/testable.
+
+    `margin` (scene units) expands the allowed region past each image edge so
+    edge handles keep breathing room at high zoom. Along an axis where the
+    image is smaller than the view, the image is centered; otherwise the view
+    is clamped to the margin-expanded image bounds. Bounded overscroll only:
+    arbitrary empty space is still impossible.
+    """
+    bounds = img.adjusted(-margin, -margin, margin, margin)
+    dx = dy = 0.0
+    if view.width() >= img.width():
+        dx = img.center().x() - view.center().x()
+    elif view.left() < bounds.left():
+        dx = bounds.left() - view.left()
+    elif view.right() > bounds.right():
+        dx = bounds.right() - view.right()
+    if view.height() >= img.height():
+        dy = img.center().y() - view.center().y()
+    elif view.top() < bounds.top():
+        dy = bounds.top() - view.top()
+    elif view.bottom() > bounds.bottom():
+        dy = bounds.bottom() - view.bottom()
+    return dx, dy
 
 
 class CropView(QGraphicsView):
@@ -372,29 +403,17 @@ class CropView(QGraphicsView):
         return QRectF(x, y, max(_MIN_CROP, w), max(_MIN_CROP, h))
 
     def _clamp_view(self) -> None:
-        """Keep the image from drifting into empty space."""
+        """Keep the image near the viewport, with edge breathing room.
+
+        The margin is converted from screen px to scene units so the padding
+        stays constant at every zoom level.
+        """
         if not self._scene.has_image():
             return
         img = self._scene.image_rect()
+        scale = max(1e-6, abs(self.transform().m11()))
         view_rect = self.mapToScene(self.viewport().rect()).boundingRect()
-        dx = dy = 0.0
-        if view_rect.width() >= img.width():
-            # center horizontally
-            target_cx = img.center().x()
-            dx = target_cx - view_rect.center().x()
-        else:
-            if view_rect.left() < img.left():
-                dx = img.left() - view_rect.left()
-            elif view_rect.right() > img.right():
-                dx = img.right() - view_rect.right()
-        if view_rect.height() >= img.height():
-            target_cy = img.center().y()
-            dy = target_cy - view_rect.center().y()
-        else:
-            if view_rect.top() < img.top():
-                dy = img.top() - view_rect.top()
-            elif view_rect.bottom() > img.bottom():
-                dy = img.bottom() - view_rect.bottom()
+        dx, dy = clamp_translation(view_rect, img, _EDGE_MARGIN_PX / scale)
         if dx or dy:
             self.translate(dx, dy)
 

@@ -104,7 +104,9 @@ present; Linux uses the PNG.
 4. Pick an **aspect ratio** (or type a custom `W:H`); fine-tune **X / Y / Width / Height**.
 5. Zoom with **Ctrl + wheel** (cursor-centered, up to 800%), pan with **right-drag**,
    scroll horizontally with **Shift + wheel**, scroll vertically in fine steps
-   with **Alt + wheel**, reset with **Fit** (`Ctrl+0`).
+   with **Alt + wheel**, reset with **Fit** (`Ctrl+0`). The canvas keeps a
+   padding margin around the frame so edge handles stay grabbable when
+   zoomed in close.
 6. Choose output **Size** and **Encoder**, set the output file.
 7. **Start** (`Ctrl+R`) — watch %, position, speed and ETA. **Cancel** any time:
    FFmpeg is terminated and the partial output is removed.
