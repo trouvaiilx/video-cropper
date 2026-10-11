@@ -203,8 +203,13 @@ export const App: React.FC = () => {
   const toolsRef = useRef<ToolPaths | null>(null);
 
   const showNotification = useCallback((item: Omit<NotificationItem, 'id'>) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setNotifications((prev) => [...prev, { ...item, id }]);
+    setNotifications((prev) => {
+      if (prev.some((n) => n.title === item.title && n.message === item.message)) {
+        return prev;
+      }
+      const id = Math.random().toString(36).substring(2, 9);
+      return [...prev, { ...item, id }];
+    });
   }, []);
 
   const dismissNotification = useCallback((id: string) => {
@@ -422,8 +427,15 @@ export const App: React.FC = () => {
   );
 
   // Incoming File Handler for Drops
+  const lastDropTimeRef = useRef<number>(0);
   const handleIncomingDroppedFiles = useCallback(
     (paths: string[]) => {
+      const now = Date.now();
+      if (now - lastDropTimeRef.current < 500) {
+        return;
+      }
+      lastDropTimeRef.current = now;
+
       if (paths.length === 0) return;
       const validPath = paths.find((p) => isSupportedVideoFile(p));
       if (validPath) {
@@ -444,6 +456,9 @@ export const App: React.FC = () => {
     },
     [loadVideo, showNotification]
   );
+
+  const handleIncomingDroppedFilesRef = useRef(handleIncomingDroppedFiles);
+  handleIncomingDroppedFilesRef.current = handleIncomingDroppedFiles;
 
   // File Picker
   const handleOpenFileDialog = async () => {
@@ -639,85 +654,71 @@ export const App: React.FC = () => {
   // Window Drag & Drop (Full Window)
   useEffect(() => {
     let unlistenTauriDrag: (() => void) | undefined;
+    let isMounted = true;
 
     // 1. Tauri v2 official window drag-and-drop listener
-    (async () => {
-      try {
-        unlistenTauriDrag = await getCurrentWindow().onDragDropEvent((event) => {
-          if (event.payload.type === 'enter' || event.payload.type === 'over') {
-            const paths = 'paths' in event.payload ? event.payload.paths : [];
-            if (paths && paths.length > 0) {
-              const hasVideo = paths.some(isSupportedVideoFile);
-              const fname = paths[0].split(/[/\\]/).pop() || '';
-              setDragState({
-                isDragging: true,
-                isValid: hasVideo,
-                fileName: fname,
-              });
-            } else {
-              setDragState((prev) => ({
-                ...prev,
-                isDragging: true,
-              }));
-            }
-          } else if (event.payload.type === 'leave') {
+    getCurrentWindow()
+      .onDragDropEvent((event) => {
+        if (!isMounted) return;
+        if (event.payload.type === 'enter' || event.payload.type === 'over') {
+          const paths = 'paths' in event.payload ? event.payload.paths : [];
+          if (paths && paths.length > 0) {
+            const hasVideo = paths.some(isSupportedVideoFile);
+            const fname = paths[0].split(/[/\\]/).pop() || '';
             setDragState({
-              isDragging: false,
-              isValid: null,
-              fileName: '',
+              isDragging: true,
+              isValid: hasVideo,
+              fileName: fname,
             });
-          } else if (event.payload.type === 'drop') {
-            setDragState({
-              isDragging: false,
-              isValid: null,
-              fileName: '',
-            });
-            const paths = event.payload.paths;
-            if (paths && paths.length > 0) {
-              handleIncomingDroppedFiles(paths);
-            }
+          } else {
+            setDragState((prev) => ({
+              ...prev,
+              isDragging: true,
+            }));
           }
-        });
-      } catch (e) {
+        } else if (event.payload.type === 'leave') {
+          setDragState({
+            isDragging: false,
+            isValid: null,
+            fileName: '',
+          });
+        } else if (event.payload.type === 'drop') {
+          setDragState({
+            isDragging: false,
+            isValid: null,
+            fileName: '',
+          });
+          const paths = event.payload.paths;
+          if (paths && paths.length > 0) {
+            handleIncomingDroppedFilesRef.current(paths);
+          }
+        }
+      })
+      .then((unlisten) => {
+        if (!isMounted) {
+          unlisten();
+        } else {
+          unlistenTauriDrag = unlisten;
+        }
+      })
+      .catch((e) => {
         console.warn('Tauri onDragDropEvent listener fallback', e);
-      }
-    })();
+      });
 
-    // 2. HTML5 drag-and-drop events as fallback
+    // 2. HTML5 drag-and-drop events: preventDefault to stop default browser navigation
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setDragState((prev) => (prev.isDragging ? prev : { isDragging: true, isValid: null, fileName: '' }));
     };
 
     const handleDragLeave = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (e.relatedTarget === null || (e.clientX <= 0 && e.clientY <= 0)) {
-        setDragState({
-          isDragging: false,
-          isValid: null,
-          fileName: '',
-        });
-      }
     };
 
     const handleDrop = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setDragState({
-        isDragging: false,
-        isValid: null,
-        fileName: '',
-      });
-      if (e.dataTransfer && e.dataTransfer.files.length > 0) {
-        const paths = Array.from(e.dataTransfer.files)
-          .map((f: any) => f.path || f.name)
-          .filter(Boolean);
-        if (paths.length > 0) {
-          handleIncomingDroppedFiles(paths);
-        }
-      }
     };
 
     window.addEventListener('dragover', handleDragOver);
@@ -725,12 +726,13 @@ export const App: React.FC = () => {
     window.addEventListener('drop', handleDrop);
 
     return () => {
+      isMounted = false;
       if (unlistenTauriDrag) unlistenTauriDrag();
       window.removeEventListener('dragover', handleDragOver);
       window.removeEventListener('dragleave', handleDragLeave);
       window.removeEventListener('drop', handleDrop);
     };
-  }, [handleIncomingDroppedFiles]);
+  }, []);
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg-dark text-fg-primary">
