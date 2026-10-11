@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { CropConfig, VideoMetadata } from '../../types';
-import { clamp, PreviewMapping, clampCrop } from '../../utils/coordinates';
+import { clamp, clampPan, PreviewMapping, clampCrop } from '../../utils/coordinates';
 
 export interface CropCanvasHandle {
   fitView: () => void;
@@ -44,6 +44,13 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
     const [zoom, setZoom] = useState<number>(1.0);
     const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
     const [fitScale, setFitScale] = useState<number>(1.0);
+
+    const zoomRef = useRef<number>(zoom);
+    zoomRef.current = zoom;
+    const panRef = useRef<{ x: number; y: number }>(pan);
+    panRef.current = pan;
+    const fitScaleRef = useRef<number>(fitScale);
+    fitScaleRef.current = fitScale;
 
     // Interaction states
     const isInteractingRef = useRef<boolean>(false);
@@ -89,47 +96,61 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       onZoomChange(scale / scale); // 100% relative to fit
     }, [onZoomChange]);
 
+    // Zoom centered at arbitrary viewport point
+    const zoomAtPoint = useCallback(
+      (point: { x: number; y: number }, factor: number) => {
+        setZoom((prevZoom) => {
+          const minZ = fitScaleRef.current;
+          const maxZ = fitScaleRef.current * 8.0;
+          const newZoom = clamp(prevZoom * factor, minZ, maxZ);
+          if (Math.abs(newZoom - prevZoom) < 1e-4) return prevZoom;
+
+          setPan((prevPan) => {
+            const scaleRatio = newZoom / prevZoom;
+            const newPanX = point.x - (point.x - prevPan.x) * scaleRatio;
+            const newPanY = point.y - (point.y - prevPan.y) * scaleRatio;
+
+            if (containerRef.current && imageRef.current) {
+              const rect = containerRef.current.getBoundingClientRect();
+              return clampPan(
+                { x: newPanX, y: newPanY },
+                newZoom,
+                imageRef.current.width,
+                imageRef.current.height,
+                rect.width,
+                rect.height,
+                EDGE_MARGIN_PX
+              );
+            }
+            return { x: newPanX, y: newPanY };
+          });
+
+          onZoomChange(newZoom / fitScaleRef.current);
+          return newZoom;
+        });
+      },
+      [onZoomChange]
+    );
+
     const zoomIn = useCallback(() => {
       if (!containerRef.current || !imageRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const center = { x: rect.width / 2, y: rect.height / 2 };
       zoomAtPoint(center, 1.25);
-    }, []);
+    }, [zoomAtPoint]);
 
     const zoomOut = useCallback(() => {
       if (!containerRef.current || !imageRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const center = { x: rect.width / 2, y: rect.height / 2 };
       zoomAtPoint(center, 0.8);
-    }, []);
+    }, [zoomAtPoint]);
 
     useImperativeHandle(ref, () => ({
       fitView,
       zoomIn,
       zoomOut,
     }));
-
-    // Zoom centered at arbitrary viewport point
-    const zoomAtPoint = (point: { x: number; y: number }, factor: number) => {
-      setZoom((prevZoom) => {
-        const minZ = fitScale;
-        const maxZ = fitScale * 8.0;
-        const newZoom = clamp(prevZoom * factor, minZ, maxZ);
-        if (Math.abs(newZoom - prevZoom) < 1e-4) return prevZoom;
-
-        setPan((prevPan) => {
-          // Adjust pan so point remains invariant in screen coords:
-          // newPan = point - (point - prevPan) * (newZoom / prevZoom)
-          const scaleRatio = newZoom / prevZoom;
-          const newPanX = point.x - (point.x - prevPan.x) * scaleRatio;
-          const newPanY = point.y - (point.y - prevPan.y) * scaleRatio;
-          return { x: newPanX, y: newPanY };
-        });
-
-        onZoomChange(newZoom / fitScale);
-        return newZoom;
-      });
-    };
 
     // Mapping helpers between screen pixels and source display pixels
     const getMapping = useCallback((): PreviewMapping | null => {
@@ -353,7 +374,7 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       // Right-click: Pan
       if (e.button === 2) {
         interactionModeRef.current = 'panning';
-        panStartRef.current = { x: mouseX - pan.x, y: mouseY - pan.y };
+        panStartRef.current = { x: mouseX - panRef.current.x, y: mouseY - panRef.current.y };
         isInteractingRef.current = true;
         return;
       }
@@ -461,7 +482,21 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       if (interactionModeRef.current === 'panning') {
         const newPanX = mouseX - panStartRef.current.x;
         const newPanY = mouseY - panStartRef.current.y;
-        setPan({ x: newPanX, y: newPanY });
+        if (containerRef.current && imageRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          const clamped = clampPan(
+            { x: newPanX, y: newPanY },
+            zoomRef.current,
+            imageRef.current.width,
+            imageRef.current.height,
+            rect.width,
+            rect.height,
+            EDGE_MARGIN_PX
+          );
+          setPan(clamped);
+        } else {
+          setPan({ x: newPanX, y: newPanY });
+        }
         return;
       }
 
@@ -564,27 +599,112 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       activeHandleRef.current = -1;
     };
 
-    // Wheel zooming and scrolling
-    const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
+    // Prevent Alt key from triggering Windows native window menu focus
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Alt') {
+          e.preventDefault();
+        }
+      };
+      const handleKeyUp = (e: KeyboardEvent) => {
+        if (e.key === 'Alt') {
+          e.preventDefault();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown, { capture: true });
+      window.addEventListener('keyup', handleKeyUp, { capture: true });
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown, { capture: true });
+        window.removeEventListener('keyup', handleKeyUp, { capture: true });
+      };
+    }, []);
 
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
+    // Native wheel listener with { passive: false } for robust prevention and clamping
+    useEffect(() => {
+      const container = containerRef.current;
+      if (!container) return;
 
-      if (e.ctrlKey) {
-        // Cursor-centered zoom
-        const factor = e.deltaY < 0 ? 1.15 : 0.87;
-        zoomAtPoint({ x: mouseX, y: mouseY }, factor);
-      } else if (e.shiftKey) {
-        // Horizontal scroll
-        setPan((p) => ({ ...p, x: p.x - e.deltaY }));
-      } else {
-        // Vertical scroll
-        setPan((p) => ({ ...p, y: p.y - e.deltaY }));
-      }
-    };
+      const handleWheelNative = (e: WheelEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!imageRef.current) return;
+
+        const rect = container.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Normalize delta across line/pixel modes
+        let dx = e.deltaX;
+        let dy = e.deltaY;
+        if (e.deltaMode === 1) {
+          dx *= 24;
+          dy *= 24;
+        } else if (e.deltaMode === 2) {
+          dx *= 400;
+          dy *= 400;
+        }
+
+        const currentZoom = zoomRef.current;
+        const currentPan = panRef.current;
+        const imgW = imageRef.current.width;
+        const imgH = imageRef.current.height;
+
+        if (e.ctrlKey) {
+          // Cursor-centered zoom
+          const factor = dy < 0 ? 1.15 : 1 / 1.15;
+          zoomAtPoint({ x: mouseX, y: mouseY }, factor);
+        } else if (e.shiftKey) {
+          // Horizontal scroll (smooth quarter-notch if Alt is also pressed)
+          const factor = e.altKey ? 0.25 : 1.0;
+          const rawDelta = dx !== 0 ? dx : dy;
+          const delta = rawDelta * factor;
+          const targetPan = { x: currentPan.x - delta, y: currentPan.y };
+          const clamped = clampPan(
+            targetPan,
+            currentZoom,
+            imgW,
+            imgH,
+            rect.width,
+            rect.height,
+            EDGE_MARGIN_PX
+          );
+          setPan(clamped);
+        } else if (e.altKey) {
+          // Alt + wheel: Smooth vertical scroll (quarter-notch for fine precision work)
+          const delta = dy * 0.25;
+          const targetPan = { x: currentPan.x, y: currentPan.y - delta };
+          const clamped = clampPan(
+            targetPan,
+            currentZoom,
+            imgW,
+            imgH,
+            rect.width,
+            rect.height,
+            EDGE_MARGIN_PX
+          );
+          setPan(clamped);
+        } else {
+          // Normal vertical scroll
+          const targetPan = { x: currentPan.x, y: currentPan.y - dy };
+          const clamped = clampPan(
+            targetPan,
+            currentZoom,
+            imgW,
+            imgH,
+            rect.width,
+            rect.height,
+            EDGE_MARGIN_PX
+          );
+          setPan(clamped);
+        }
+      };
+
+      container.addEventListener('wheel', handleWheelNative, { passive: false });
+      return () => {
+        container.removeEventListener('wheel', handleWheelNative);
+      };
+    }, [zoomAtPoint]);
 
     return (
       <div
@@ -594,7 +714,6 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
         onContextMenu={(e) => e.preventDefault()}
       >
         <canvas ref={canvasRef} className="absolute inset-0 block w-full h-full" />

@@ -43,6 +43,42 @@ export function clamp(val: number, min: number, max: number): number {
   return Math.min(Math.max(val, min), max);
 }
 
+export function clampPan(
+  pan: { x: number; y: number },
+  zoom: number,
+  imgW: number,
+  imgH: number,
+  viewW: number,
+  viewH: number,
+  margin: number = 32
+): { x: number; y: number } {
+  if (imgW <= 0 || imgH <= 0 || viewW <= 0 || viewH <= 0) {
+    return pan;
+  }
+  const curW = imgW * zoom;
+  const curH = imgH * zoom;
+
+  let x: number;
+  if (curW <= viewW) {
+    x = (viewW - curW) / 2;
+  } else {
+    const minX = viewW - margin - curW;
+    const maxX = margin;
+    x = clamp(pan.x, minX, maxX);
+  }
+
+  let y: number;
+  if (curH <= viewH) {
+    y = (viewH - curH) / 2;
+  } else {
+    const minY = viewH - margin - curH;
+    const maxY = margin;
+    y = clamp(pan.y, minY, maxY);
+  }
+
+  return { x, y };
+}
+
 export const PRESET_RATIOS: AspectRatio[] = [
   { label: 'Free' },
   { label: '16:9', num: 16, den: 9 },
