@@ -1,67 +1,71 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  One-time developer setup for Video Cropper on Windows.
+  One-time developer setup for Video Cropper (Rust + Tauri v2) on Windows.
 
 .DESCRIPTION
-  Creates the project-local virtual environment (.venv), installs the project
-  with dev + build extras, and checks that FFmpeg/ffprobe are available.
-  Never touches the global Python environment.
+  Checks Rust/Cargo, Node.js, and pnpm. Installs dependencies and checks FFmpeg.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File tools\setup_windows.ps1
 #>
 [CmdletBinding()]
-param(
-  [string]$Python = "python"
-)
+param()
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
-$VenvPython = Join-Path $Root ".venv\Scripts\python.exe"
 
-function Invoke-Step([string]$Exe, [string[]]$Arguments, [string]$What) {
-  Write-Host "==> $What" -ForegroundColor Cyan
-  & $Exe @Arguments
-  if ($LASTEXITCODE -ne 0) { throw "$What failed (exit $LASTEXITCODE)." }
-}
+Write-Host "==> Checking development prerequisites" -ForegroundColor Cyan
 
-# 1. Python >= 3.10 available?
+# 1. Rust / Cargo
 try {
-  $VersionLine = & $Python --version 2>&1
+  $RustVersion = & rustc --version 2>&1
+  $CargoVersion = & cargo --version 2>&1
+  Write-Host "Found $RustVersion and $CargoVersion" -ForegroundColor Green
 } catch {
-  throw "Python not found ('$Python'). Install Python 3.10+ from https://www.python.org/downloads/ and retry."
-}
-$VersionString = ($VersionLine | Out-String)
-if ($VersionString -notmatch 'Python 3\.(\d+)\.') { throw "Could not parse Python version from: $VersionString" }
-if ([int]$Matches[1] -lt 10) { throw "Python 3.10+ is required (found $VersionString)." }
-Write-Host "Found $VersionString" -ForegroundColor Green
-
-# 2. Virtual environment (project-local, git-ignored).
-if (-not (Test-Path -LiteralPath $VenvPython)) {
-  Invoke-Step $Python @("-m", "venv", (Join-Path $Root ".venv")) "Creating .venv"
-} else {
-  Write-Host "==> .venv already exists, reusing it" -ForegroundColor Cyan
+  throw "Rust is required. Install from https://rustup.rs/ and retry."
 }
 
-# 3. Dependencies, inside .venv only.
-Invoke-Step $VenvPython @("-m", "pip", "install", "--upgrade", "pip") "Upgrading pip"
-Invoke-Step $VenvPython @("-m", "pip", "install", "-e", "$Root[dev,build]") "Installing project (dev,build extras)"
-
-# 4. FFmpeg / ffprobe are external binaries (never pip packages).
-$Missing = @()
-foreach ($Tool in @("ffmpeg", "ffprobe")) {
-  if (-not (Get-Command $Tool -ErrorAction SilentlyContinue)) { $Missing += $Tool }
-}
-if ($Missing.Count -gt 0) {
-  Write-Warning ("Missing from PATH: {0}. Install with 'winget install Gyan.FFmpeg' " -f ($Missing -join ", ") +
-    "or set custom paths in the app under Tools -> Settings.")
-} else {
-  Write-Host "Found ffmpeg + ffprobe on PATH" -ForegroundColor Green
+# 2. Node.js
+try {
+  $NodeVersion = & node --version 2>&1
+  Write-Host "Found Node.js $NodeVersion" -ForegroundColor Green
+} catch {
+  throw "Node.js is required. Install from https://nodejs.org/ and retry."
 }
 
-Write-Host ""
-Write-Host "Done. Next steps:" -ForegroundColor Green
-Write-Host "  .venv\Scripts\Activate.ps1"
-Write-Host "  python -m pytest -q"
-Write-Host "  python -m video_cropper"
+# 3. pnpm
+if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
+  Write-Host "==> Installing pnpm" -ForegroundColor Cyan
+  & npm install -g pnpm
+}
+$PnpmVersion = & pnpm --version 2>&1
+Write-Host "Found pnpm $PnpmVersion" -ForegroundColor Green
+
+# 4. Install Node dependencies
+Push-Location $Root
+try {
+  Write-Host "==> Installing frontend dependencies" -ForegroundColor Cyan
+  & pnpm install
+  & pnpm approve-builds --all
+
+  # 5. Check FFmpeg
+  $Missing = @()
+  foreach ($Tool in @("ffmpeg", "ffprobe")) {
+    if (-not (Get-Command $Tool -ErrorAction SilentlyContinue)) { $Missing += $Tool }
+  }
+  if ($Missing.Count -gt 0) {
+    Write-Warning ("Missing from PATH: {0}. Install with 'winget install Gyan.FFmpeg' " -f ($Missing -join ", ") +
+      "or configure custom paths in the app under Tools -> Settings.")
+  } else {
+    Write-Host "Found ffmpeg + ffprobe on PATH" -ForegroundColor Green
+  }
+
+  Write-Host ""
+  Write-Host "Done! Development commands:" -ForegroundColor Green
+  Write-Host "  pnpm tauri dev            # Launch app in development mode"
+  Write-Host "  cargo test --manifest-path src-tauri/Cargo.toml  # Run backend unit tests"
+  Write-Host "  powershell tools\build_windows.ps1  # Build standalone portable VideoCropper.exe"
+} finally {
+  Pop-Location
+}
