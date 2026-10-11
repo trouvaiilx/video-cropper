@@ -69,3 +69,5 @@ dist/
 # Rust / Tauri
 src-tauri/target/
 
+# Agents
+.agent/
