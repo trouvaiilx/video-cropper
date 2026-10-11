@@ -59,28 +59,40 @@ FFmpeg + ffprobe remain external binaries resolved in order:
 
 ## Workflow
 
-1. **Open Video** (`Ctrl+O`) or drag a video file anywhere onto the window — canvas included. A “Drop video file here” hint appears while hovering.
-2. Inspect source metadata (frame size, duration, fps, codecs, bit depth, file size) in the **Source** panel.
-3. **Left-drag** on the preview to draw the region to keep; drag inside to move, drag the square handles to resize.
+1. **Open Video** (`Ctrl+O`) or drag a video file anywhere onto the window. A full-window drop overlay with a dashed border provides immediate visual feedback. Non-video files are gracefully intercepted with descriptive in-app guidance.
+2. Inspect source metadata (frame size, duration, fps, codecs, bit depth, file size) in the **Source** panel. Long filenames are cleanly truncated with hover tooltips to preserve the layout.
+3. **Left-drag** on the preview to draw the region to keep; drag inside to move, drag the corner/edge handles to resize.
 4. Pick an **aspect ratio** (or type a custom `W:H`); fine-tune **X / Y / Width / Height**.
-5. Zoom with **Ctrl + wheel** (cursor-centered, up to 800%), pan with **right-drag**, reset with **Fit** (`Ctrl+0`). The canvas maintains overscroll padding so edge handles stay accessible at high zoom levels.
-6. Choose output **Size** and **Encoder**, set the output file.
-7. **Start** (`Ctrl+R`) — watch %, position, speed and ETA. **Cancel** any time: FFmpeg is terminated immediately and the partial output is removed.
+5. **Navigate fluidly**:
+   - **Trackpad**: 2-finger swipe pans in 2D without clicking. `Ctrl` + 2-finger swipe zooms centered directly at the cursor.
+   - **Mouse**: Scroll wheel zooms centered at the cursor. Middle-click drag or right-click drag pans the canvas.
+   - **Keyboard & Toolbar**: `Ctrl + +` / `Ctrl + -` / `Ctrl + 0` (Fit) zoom toward the cursor or screen center.
+6. Preview playback directly in the app with the **Player Bar** (`Space` to toggle play/pause, seek slider, loop toggle).
+7. Choose output **Size** and **Encoder**, set the output file.
+8. **Start** (`Ctrl+R`) — monitor progress %, current time, processing speed, and ETA. **Cancel** anytime: FFmpeg terminates immediately and partial output is cleaned up.
+9. **Interactive Completion Toast**: When processing finishes, a persistent toast appears with quick actions:
+   - **Open Video**: Opens the output file in the default system media player without console flashes.
+   - **Open Explorer**: Opens Windows Explorer and selects/highlights the newly created video file.
+   - If processing fails, a persistent error toast offers **View Details** to inspect the full FFmpeg log.
 
 ## Controls Reference
 
 | Input | Action |
 |---|---|
-| Left-drag (empty area) | Create crop |
-| Left-drag (inside crop) | Move crop |
-| Left-drag (square handle) | Resize crop |
-| Right-drag | Pan (when zoomed) |
-| Ctrl + wheel | Zoom, centered on cursor (fit … 800%) |
+| Left-drag (empty area) | Create crop rectangle |
+| Left-drag (inside crop) | Move crop rectangle |
+| Left-drag (square handle) | Resize crop rectangle |
+| Trackpad 2-finger swipe | Fluid 2D canvas pan (up, down, left, right) |
+| Right-drag / Middle-drag | Canvas pan (when zoomed) |
+| Mouse wheel / Ctrl + trackpad swipe | Zoom centered on cursor (fit … 800%) |
 | Shift + wheel | Scroll horizontally |
 | Alt + wheel | Scroll vertically in fine steps |
-| Ctrl+0 / Ctrl+= / Ctrl− | Fit / zoom in / zoom out |
-| Ctrl+O | Open video |
-| Ctrl+R | Start encoding |
+| Space | Toggle video playback (when video is loaded) |
+| Ctrl + 0 | Fit canvas to window |
+| Ctrl + = / Ctrl + − | Zoom in / Zoom out toward cursor |
+| Ctrl + O | Open video file dialog |
+| Ctrl + R | Start encoding process |
+| Ctrl + Shift + Q | Exit application |
 | X / Y / W / H inputs | Exact crop in source display pixels (synced both ways) |
 
 Crop coordinates are always stored in **source display pixels** (post-rotation, exactly what the FFmpeg `crop` filter sees) — zooming and panning never corrupt them.
@@ -98,11 +110,12 @@ Upscaling is never automatic — if the output is larger than the crop, an expli
 
 Audio is stream-copied (`-c:a copy`) whenever the source has audio; audio-less files are handled gracefully.
 
-## Output Safety
+## Output Safety & Error Handling
 
 - The output path defaults to `<name>_cropped.<ext>` next to the input and can never equal the input.
-- Existing outputs require explicit overwrite confirmation.
+- Existing outputs require explicit overwrite confirmation modal.
 - Cancel mid-encode terminates FFmpeg, waits, and deletes only the partial output. The source is only ever opened read-only.
+- **Zero intrusive native alerts**: All errors, diagnostics, and notifications are handled in-app via non-blocking notifications and structured dialog modals.
 
 ## Settings
 

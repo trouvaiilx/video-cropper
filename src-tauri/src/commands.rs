@@ -270,3 +270,108 @@ pub fn exit_app(app: AppHandle) {
         app.exit(0);
     }
 }
+
+#[tauri::command]
+pub fn open_video(path: String) -> Result<(), String> {
+    let p = Path::new(&path);
+    if !p.exists() {
+        return Err(format!("File not found: {}", path));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        std::process::Command::new("rundll32")
+            .args(["url.dll,FileProtocolHandler", &path])
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+            .map_err(|e| format!("Failed to open video: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to open video: {}", e))?;
+    }
+
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to open video: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn show_in_folder(path: String) -> Result<(), String> {
+    let p = Path::new(&path);
+    if !p.exists() {
+        return Err(format!("Path not found: {}", path));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if p.is_dir() {
+            std::process::Command::new("explorer")
+                .arg(&path)
+                .spawn()
+                .map_err(|e| format!("Failed to open explorer: {}", e))?;
+        } else {
+            std::process::Command::new("explorer")
+                .arg(format!("/select,{}", path))
+                .spawn()
+                .map_err(|e| format!("Failed to open explorer: {}", e))?;
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        if p.is_dir() {
+            std::process::Command::new("open")
+                .arg(&path)
+                .spawn()
+                .map_err(|e| format!("Failed to open folder: {}", e))?;
+        } else {
+            std::process::Command::new("open")
+                .args(["-R", &path])
+                .spawn()
+                .map_err(|e| format!("Failed to reveal in Finder: {}", e))?;
+        }
+    }
+
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    {
+        let target = if p.is_dir() { p } else { p.parent().unwrap_or(p) };
+        std::process::Command::new("xdg-open")
+            .arg(target)
+            .spawn()
+            .map_err(|e| format!("Failed to open directory: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_open_video_nonexistent_file() {
+        let res = open_video("C:\\this_file_does_not_exist_at_all_12345.mp4".into());
+        assert!(res.is_err());
+        assert!(res.unwrap_err().contains("File not found"));
+    }
+
+    #[test]
+    fn test_show_in_folder_nonexistent_path() {
+        let res = show_in_folder("C:\\this_dir_does_not_exist_at_all_12345\\file.mp4".into());
+        assert!(res.is_err());
+        assert!(res.unwrap_err().contains("Path not found"));
+    }
+}

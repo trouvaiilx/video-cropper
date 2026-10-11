@@ -33,6 +33,7 @@ import {
 } from './utils/playback';
 import { DropOverlay } from './components/DropOverlay';
 import { NotificationToast, NotificationItem } from './components/NotificationToast';
+import { Play, FolderOpen, FileText } from 'lucide-react';
 import { SettingsModal } from './components/dialogs/SettingsModal';
 import { DiagnosticsModal } from './components/dialogs/DiagnosticsModal';
 import { ConfirmOverwriteModal } from './components/dialogs/ConfirmOverwriteModal';
@@ -204,6 +205,15 @@ export const App: React.FC = () => {
 
   const showNotification = useCallback((item: Omit<NotificationItem, 'id'>) => {
     setNotifications((prev) => {
+      // If it's a persistent process toast, clear previous process toasts so the new status is clear
+      if (item.duration === 0) {
+        const withoutPriorProcess = prev.filter(
+          (n) => !(n.title === 'Processing Complete' || n.title === 'Processing Failed')
+        );
+        const id = Math.random().toString(36).substring(2, 9);
+        return [...withoutPriorProcess, { ...item, id }];
+      }
+
       if (prev.some((n) => n.title === item.title && n.message === item.message)) {
         return prev;
       }
@@ -272,22 +282,96 @@ export const App: React.FC = () => {
       });
 
       unlistenFinished = await listen<string>('ffmpeg-finished', (event) => {
+        const outPath = event.payload;
+        const fileName = outPath.split(/[/\\]/).pop() || outPath;
         setIsRunning(false);
-        setStatusMessage(`Done: ${event.payload}`);
+        setProgress(null);
+        setStatusMessage(`Done: ${fileName}`);
+
+        showNotification({
+          type: 'success',
+          title: 'Processing Complete',
+          message: fileName,
+          duration: 0, // Persistent until dismissed
+          actions: [
+            {
+              label: 'Open Video',
+              icon: <Play size={12} className="shrink-0" />,
+              variant: 'primary',
+              onClick: async () => {
+                try {
+                  await invoke('open_video', { path: outPath });
+                } catch (err) {
+                  showNotification({
+                    type: 'error',
+                    title: 'Failed to open video',
+                    message: String(err),
+                  });
+                }
+              },
+            },
+            {
+              label: 'Open Explorer',
+              icon: <FolderOpen size={12} className="shrink-0" />,
+              variant: 'secondary',
+              onClick: async () => {
+                try {
+                  await invoke('show_in_folder', { path: outPath });
+                } catch (err) {
+                  showNotification({
+                    type: 'error',
+                    title: 'Failed to open explorer',
+                    message: String(err),
+                  });
+                }
+              },
+            },
+          ],
+        });
       });
 
       unlistenCancelled = await listen('ffmpeg-cancelled', () => {
         setIsRunning(false);
         setProgress(null);
         setStatusMessage('Cancelled. Partial output removed.');
+        showNotification({
+          type: 'info',
+          title: 'Process Cancelled',
+          message: 'Video processing was cancelled. Partial output was removed.',
+        });
       });
 
       unlistenFailed = await listen<string>('ffmpeg-failed', (event) => {
+        const errorDetails = event.payload;
         setIsRunning(false);
+        setProgress(null);
         setStatusMessage('Video processing failed.');
-        setErrorModal({
-          title: 'Video Processing Failed',
-          text: event.payload,
+
+        const summary =
+          errorDetails
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0 && !line.startsWith('ffmpeg version'))
+            .pop() || 'Encoding process terminated with an error.';
+
+        showNotification({
+          type: 'error',
+          title: 'Processing Failed',
+          message: summary.length > 120 ? `${summary.substring(0, 120)}…` : summary,
+          duration: 0, // Persistent until dismissed
+          actions: [
+            {
+              label: 'View Details',
+              icon: <FileText size={12} className="shrink-0" />,
+              variant: 'danger',
+              onClick: () => {
+                setErrorModal({
+                  title: 'Video Processing Failed',
+                  text: errorDetails,
+                });
+              },
+            },
+          ],
         });
       });
     })();
@@ -298,7 +382,7 @@ export const App: React.FC = () => {
       if (unlistenCancelled) unlistenCancelled();
       if (unlistenFailed) unlistenFailed();
     };
-  }, []);
+  }, [showNotification]);
 
   // Load Video File
   const loadVideo = useCallback(
