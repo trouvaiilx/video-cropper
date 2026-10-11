@@ -37,9 +37,9 @@ try {
     throw "VideoCropper.exe is currently running. Close it before rebuilding."
   }
 
-  Write-Host "==> Compiling optimized release binary" -ForegroundColor Cyan
-  & cargo build --release --manifest-path src-tauri/Cargo.toml
-  if ($LASTEXITCODE -ne 0) { throw "Cargo release build failed (exit $LASTEXITCODE)." }
+  Write-Host "==> Compiling optimized release binary with embedded assets" -ForegroundColor Cyan
+  & pnpm tauri build --no-bundle
+  if ($LASTEXITCODE -ne 0) { throw "Tauri release build failed (exit $LASTEXITCODE)." }
 
   if (-not (Test-Path -LiteralPath $ReleaseExe)) {
     throw "Expected release output missing: $ReleaseExe"

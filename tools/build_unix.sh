@@ -14,11 +14,8 @@ echo "==> Building Video Cropper (Rust + Tauri v2, Portable)"
 echo "==> Running Rust test suite (gate)"
 cargo test --manifest-path src-tauri/Cargo.toml
 
-echo "==> Building frontend assets (gate)"
-pnpm build
-
-echo "==> Compiling optimized release binary"
-cargo build --release --manifest-path src-tauri/Cargo.toml
+echo "==> Compiling optimized release binary with embedded assets"
+pnpm tauri build --no-bundle
 
 mkdir -p "$ROOT/dist"
 cp "$ROOT/src-tauri/target/release/video-cropper" "$ROOT/dist/VideoCropper"
