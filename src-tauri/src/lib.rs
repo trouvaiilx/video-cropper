@@ -46,8 +46,10 @@ pub fn run() {
 
     app.run(|handle, event| {
         if let tauri::RunEvent::Exit = event {
-            // Don't leave a proxy ffmpeg running after the window is closed.
-            cancel_proxy(&handle.state::<AppState>().proxy);
+            // Don't leave an encode or proxy ffmpeg running after the window is closed.
+            let state = handle.state::<AppState>();
+            state.process_mgr.abort();
+            cancel_proxy(&state.proxy);
         }
     });
 }
