@@ -183,7 +183,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
         <StepForward size={14} className="text-fg-secondary" />
       </button>
 
-      <span className="font-mono text-[11px] text-fg-muted min-w-[92px] text-center">
+      <span className="font-mono tabular-nums text-[11px] text-fg-secondary min-w-[96px] text-center tracking-tight">
         {formatPlayerTime(time)} / {formatPlayerTime(total)}
       </span>
 
@@ -206,7 +206,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
       <button
         onClick={onToggleCropView}
         disabled={!hasVideo}
-        className={`flex items-center gap-1.5 px-2 py-1 border rounded transition-colors disabled:opacity-40 ${
+        className={`flex items-center gap-1.5 px-2.5 py-1 border rounded text-xs font-medium tracking-tight transition-colors disabled:opacity-40 ${
           cropView
             ? 'bg-bg-hover text-fg-primary border-border-focus'
             : 'bg-bg-input text-fg-secondary hover:bg-bg-hover border-border-subtle'

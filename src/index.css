@@ -10,9 +10,26 @@
   body {
     background-color: #181818;
     color: #e4e4e7;
-    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'Segoe UI Mono', ui-monospace, monospace;
+    font-feature-settings: 'tnum' 1, 'calt' 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     user-select: none;
     -webkit-user-select: none;
+  }
+
+  input,
+  button,
+  select,
+  textarea {
+    font-family: inherit;
+    font-feature-settings: inherit;
+  }
+
+  ::selection {
+    background-color: #2563eb;
+    color: #ffffff;
   }
 
   /* Custom scrollbar matching desktop native dark theme */

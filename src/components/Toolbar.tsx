@@ -22,6 +22,7 @@ interface ToolbarProps {
   onOpenSettings: () => void;
   onOpenDiagnostics: () => void;
   onOpenAbout: () => void;
+  onExit: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -36,6 +37,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onOpenSettings,
   onOpenDiagnostics,
   onOpenAbout,
+  onExit,
 }) => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const menuBarRef = useRef<HTMLDivElement>(null);
@@ -55,7 +57,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       {/* Top Menu Bar */}
       <div
         ref={menuBarRef}
-        className="flex items-center gap-1 px-2 py-0.5 border-b border-border-subtle/50 text-xs"
+        className="flex items-center gap-1 px-2 py-0.5 border-b border-border-subtle/50 text-[11px]"
       >
         {/* File Menu */}
         <div className="relative">
@@ -77,7 +79,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary"
               >
                 <span>Open Video…</span>
-                <span className="text-[10px] text-fg-muted font-mono">Ctrl+O</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+O</span>
+              </button>
+              <div className="my-1 border-t border-border-subtle/50" />
+              <button
+                onClick={() => {
+                  setActiveMenu(null);
+                  onExit();
+                }}
+                className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary"
+              >
+                <span>Exit</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+Shift+Q</span>
               </button>
             </div>
           )}
@@ -104,7 +117,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
               >
                 <span>Fit</span>
-                <span className="text-[10px] text-fg-muted font-mono">Ctrl+0</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+0</span>
               </button>
               <button
                 onClick={() => {
@@ -115,7 +128,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
               >
                 <span>Zoom In</span>
-                <span className="text-[10px] text-fg-muted font-mono">Ctrl+=</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+=</span>
               </button>
               <button
                 onClick={() => {
@@ -126,7 +139,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
               >
                 <span>Zoom Out</span>
-                <span className="text-[10px] text-fg-muted font-mono">Ctrl+-</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+-</span>
               </button>
               <div className="my-1 border-t border-border-subtle/50" />
               <button
@@ -212,7 +225,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs">
         <button
           onClick={onOpenVideo}
-          className="flex items-center gap-1.5 px-2 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary transition-colors"
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary font-medium tracking-tight transition-colors"
           title="Open Video (Ctrl+O)"
         >
           <FolderOpen size={14} className="text-fg-secondary" />
@@ -222,7 +235,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <button
           onClick={onFit}
           disabled={!hasVideo}
-          className="flex items-center gap-1.5 px-2 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary transition-colors disabled:opacity-40"
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary font-medium tracking-tight transition-colors disabled:opacity-40"
           title="Fit to view (Ctrl+0)"
         >
           <Maximize2 size={14} className="text-fg-secondary" />
@@ -249,7 +262,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
         <div className="h-4 w-[1px] bg-border-subtle mx-1" />
 
-        <div className="text-[11px] font-mono text-fg-muted min-w-[70px]">
+        <div className="text-[11px] font-mono tabular-nums text-fg-muted min-w-[70px]">
           Zoom: {hasVideo ? `${zoomPercent}%` : '—'}
         </div>
 
@@ -257,7 +270,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
         <button
           onClick={onToggleThirds}
-          className={`flex items-center gap-1.5 px-2 py-1 border border-border-subtle rounded transition-colors ${
+          className={`flex items-center gap-1.5 px-2 py-1 border border-border-subtle rounded font-medium tracking-tight transition-colors ${
             showThirds
               ? 'bg-bg-hover text-fg-primary border-border-focus'
               : 'bg-bg-input text-fg-secondary hover:bg-bg-hover'

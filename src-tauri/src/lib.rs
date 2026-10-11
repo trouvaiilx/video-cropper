@@ -36,7 +36,8 @@ pub fn run() {
             cancel_encode,
             get_diagnostics,
             get_settings,
-            set_settings
+            set_settings,
+            exit_app
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

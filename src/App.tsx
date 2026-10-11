@@ -432,9 +432,20 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleExit = useCallback(() => {
+    invoke('exit_app').catch((e) => {
+      console.error('Failed to exit application:', e);
+    });
+  }, []);
+
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'q' || e.key === 'Q')) {
+        e.preventDefault();
+        handleExit();
+        return;
+      }
       if (e.ctrlKey) {
         if (e.key === 'o' || e.key === 'O') {
           e.preventDefault();
@@ -456,7 +467,7 @@ export const App: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleOpenFileDialog, isRunning, meta]);
+  }, [handleExit, handleOpenFileDialog, handleStart, isRunning, meta]);
 
   // Window Drag & Drop
   useEffect(() => {
@@ -520,6 +531,7 @@ export const App: React.FC = () => {
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenDiagnostics={handleOpenDiagnostics}
         onOpenAbout={() => setAboutOpen(true)}
+        onExit={handleExit}
       />
 
       {/* Main Workspace (Canvas + Side Panel) */}
@@ -567,7 +579,7 @@ export const App: React.FC = () => {
         </div>
 
         {/* Right: Controls & Info Sidebar */}
-        <div className="w-[340px] shrink-0 border-l border-border-subtle bg-bg-panel overflow-y-auto p-2.5 space-y-2.5">
+        <div className="w-[340px] shrink-0 border-l border-border-subtle bg-bg-panel overflow-y-auto overflow-x-hidden p-2.5 space-y-2.5">
           <SourceMetadataPanel meta={meta} />
 
           <CropControlsPanel
@@ -610,8 +622,8 @@ export const App: React.FC = () => {
 
       {/* Status Bar */}
       <div className="h-6 border-t border-border-subtle bg-bg-panel px-3 flex items-center justify-between text-[11px] text-fg-muted select-none">
-        <span className="truncate">{statusMessage}</span>
-        <span className="font-mono text-[10px] shrink-0">
+        <span className="truncate tracking-tight">{statusMessage}</span>
+        <span className="font-mono text-[10px] tracking-tight shrink-0">
           {tools ? 'FFmpeg Ready' : 'FFmpeg Missing'}
         </span>
       </div>

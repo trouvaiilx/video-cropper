@@ -20,11 +20,11 @@ export const ConfirmOverwriteModal: React.FC<ConfirmOverwriteModalProps> = ({
             <AlertTriangle size={18} />
           </div>
           <div>
-            <div className="text-sm font-semibold text-fg-primary mb-1">Output Exists</div>
+            <div className="text-sm font-semibold tracking-tight text-fg-primary mb-1">Output Exists</div>
             <div className="text-fg-secondary text-xs leading-relaxed select-text font-mono break-all">
               “{filePath}” already exists.
             </div>
-            <div className="text-fg-primary text-xs mt-2 font-medium">
+            <div className="text-fg-primary text-xs mt-2 font-medium tracking-tight">
               Do you want to overwrite it?
             </div>
           </div>
@@ -33,13 +33,13 @@ export const ConfirmOverwriteModal: React.FC<ConfirmOverwriteModalProps> = ({
         <div className="flex justify-end gap-2 pt-3 border-t border-border-subtle/50">
           <button
             onClick={onCancel}
-            className="px-3.5 py-1.5 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-xs transition-colors"
+            className="px-3.5 py-1.5 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-xs font-medium tracking-tight transition-colors"
           >
             No
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-1.5 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-medium rounded text-xs transition-colors shadow-sm"
+            className="px-4 py-1.5 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-medium tracking-tight rounded text-xs transition-colors shadow-sm"
           >
             Overwrite
           </button>

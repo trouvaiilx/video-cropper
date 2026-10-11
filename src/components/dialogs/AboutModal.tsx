@@ -1,4 +1,5 @@
 import React from 'react';
+import logoUrl from '../../../assets/logo.png';
 
 interface AboutModalProps {
   onClose: () => void;
@@ -9,12 +10,12 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="w-[380px] bg-bg-panel border border-border-subtle rounded shadow-2xl p-5 text-xs text-fg-primary text-center">
         <div className="flex justify-center mb-3">
-          <img src="/assets/logo.png" alt="Video Cropper" className="w-16 h-16 object-contain" />
+          <img src={logoUrl} alt="Video Cropper" className="w-16 h-16 object-contain select-none" />
         </div>
-        <div className="text-base font-semibold text-fg-primary">Video Cropper</div>
-        <div className="text-xs text-fg-muted font-mono mb-3">v0.2.0 (Rust + Tauri)</div>
+        <div className="text-sm font-semibold tracking-tight text-fg-primary">Video Cropper</div>
+        <div className="text-[11px] text-fg-muted mb-3">v0.2.0 (Rust + Tauri)</div>
 
-        <p className="text-fg-secondary text-xs leading-relaxed mb-4 text-left">
+        <p className="text-fg-secondary text-[11px] leading-relaxed mb-4 text-left">
           Minimalist, high-performance desktop utility for visually cropping video frames on
           Windows without re-encoding audio or degrading metadata.
         </p>
@@ -23,7 +24,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
           <span>License: MIT</span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-xs transition-colors"
+            className="px-4 py-1.5 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-xs font-medium tracking-tight transition-colors"
           >
             Close
           </button>

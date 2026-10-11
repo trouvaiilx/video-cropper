@@ -261,3 +261,8 @@ pub fn get_settings() -> AppSettings {
 pub fn set_settings(settings: AppSettings) -> Result<(), String> {
     save_settings(&settings)
 }
+
+#[tauri::command]
+pub fn exit_app(app: AppHandle) {
+    app.exit(0);
+}

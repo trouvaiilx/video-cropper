@@ -67,8 +67,8 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
   };
 
   return (
-    <div className="border border-border-subtle rounded bg-bg-panel p-3 text-xs">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted mb-2">
+    <div className="border border-border-subtle rounded bg-bg-panel p-3 text-xs overflow-hidden">
+      <div className="text-[10px] font-medium uppercase tracking-section text-fg-muted mb-2.5">
         Crop
       </div>
 
@@ -76,7 +76,7 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
         {/* Ratio Row */}
         <div>
           <div className="flex items-center gap-2 mb-1.5">
-            <label className="text-fg-secondary w-14 shrink-0">Ratio:</label>
+            <label className="text-fg-secondary text-[11px] w-14 shrink-0">Ratio:</label>
             <select
               value={isCustomRatio ? 'Custom…' : selectedRatio.label}
               onChange={handleRatioSelect}
@@ -102,7 +102,7 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
                 onBlur={handleCustomRatioBlur}
                 onKeyDown={(e) => e.key === 'Enter' && handleCustomRatioBlur()}
                 disabled={disabled}
-                className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs focus:outline-none focus:border-border-focus disabled:opacity-50"
+                className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono focus:outline-none focus:border-border-focus disabled:opacity-50"
               />
             </div>
           )}
@@ -111,7 +111,7 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
         {/* Spinboxes Form */}
         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border-subtle/50">
           <div className="flex items-center gap-2">
-            <span className="text-fg-secondary w-10">X:</span>
+            <span className="text-fg-secondary text-[11px] w-10">X:</span>
             <input
               type="number"
               min={0}
@@ -119,12 +119,12 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
               value={crop.x}
               onChange={(e) => handleSpinChange('x', parseInt(e.target.value) || 0)}
               disabled={disabled}
-              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-fg-secondary w-10">Y:</span>
+            <span className="text-fg-secondary text-[11px] w-10">Y:</span>
             <input
               type="number"
               min={0}
@@ -132,12 +132,12 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
               value={crop.y}
               onChange={(e) => handleSpinChange('y', parseInt(e.target.value) || 0)}
               disabled={disabled}
-              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-fg-secondary w-10">Width:</span>
+            <span className="text-fg-secondary text-[11px] w-10">Width:</span>
             <input
               type="number"
               min={2}
@@ -145,12 +145,12 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
               value={crop.width}
               onChange={(e) => handleSpinChange('width', parseInt(e.target.value) || 2)}
               disabled={disabled}
-              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-fg-secondary w-10">Height:</span>
+            <span className="text-fg-secondary text-[11px] w-10">Height:</span>
             <input
               type="number"
               min={2}
@@ -158,15 +158,15 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
               value={crop.height}
               onChange={(e) => handleSpinChange('height', parseInt(e.target.value) || 2)}
               disabled={disabled}
-              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
           </div>
         </div>
 
         {/* Readout info */}
-        <div className="text-[11px] text-fg-secondary font-mono pt-1">
+        <div className="text-[11px] text-fg-secondary font-mono tabular-nums pt-1 leading-relaxed">
           {disabled ? (
-            <span className="text-fg-muted font-sans">No video loaded.</span>
+            <span className="text-fg-muted font-normal">No video loaded.</span>
           ) : (
             <div>
               <div>Crop: {crop.width} × {crop.height}</div>
