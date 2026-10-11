@@ -123,4 +123,4 @@ Settings (last directories, encoder, ratio, resolution preset, custom FFmpeg pat
 
 ## License
 
-MIT
+This project is licensed under the [MIT License](LICENSE).
