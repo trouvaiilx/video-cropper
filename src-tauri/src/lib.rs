@@ -6,11 +6,18 @@ pub mod services;
 use commands::*;
 use ffmpeg::ProcessManager;
 use std::sync::Arc;
+use tauri::Manager;
 
 pub fn run() {
     let process_mgr = Arc::new(ProcessManager::new());
 
     tauri::Builder::default()
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.center();
+            }
+            Ok(())
+        })
         .manage(AppState { process_mgr })
         .invoke_handler(tauri::generate_handler![
             get_tools,

@@ -77,8 +77,9 @@ pub fn suggest_output_path(input_path: String, last_output_dir: Option<String>) 
 }
 
 #[tauri::command]
-pub fn select_input_file(default_dir: Option<String>) -> Option<String> {
+pub fn select_input_file(window: tauri::WebviewWindow, default_dir: Option<String>) -> Option<String> {
     let mut dialog = rfd::FileDialog::new()
+        .set_parent(&window)
         .set_title("Open Video")
         .add_filter(
             "Video Files",
@@ -98,8 +99,10 @@ pub fn select_input_file(default_dir: Option<String>) -> Option<String> {
 }
 
 #[tauri::command]
-pub fn select_output_file(default_path: Option<String>) -> Option<String> {
-    let mut dialog = rfd::FileDialog::new().set_title("Save Output Video");
+pub fn select_output_file(window: tauri::WebviewWindow, default_path: Option<String>) -> Option<String> {
+    let mut dialog = rfd::FileDialog::new()
+        .set_parent(&window)
+        .set_title("Save Output Video");
 
     if let Some(dp) = default_path {
         let p = Path::new(&dp);
@@ -115,8 +118,9 @@ pub fn select_output_file(default_path: Option<String>) -> Option<String> {
 }
 
 #[tauri::command]
-pub fn select_exe_file(title: String) -> Option<String> {
+pub fn select_exe_file(window: tauri::WebviewWindow, title: String) -> Option<String> {
     rfd::FileDialog::new()
+        .set_parent(&window)
         .set_title(&title)
         .add_filter("Executables", &["exe"])
         .pick_file()

@@ -44,6 +44,7 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
     const [zoom, setZoom] = useState<number>(1.0);
     const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
     const [fitScale, setFitScale] = useState<number>(1.0);
+    const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
     const zoomRef = useRef<number>(zoom);
     zoomRef.current = zoom;
@@ -347,19 +348,66 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       }
 
       ctx.restore();
-    }, [previewSrc, meta, crop, zoom, pan, showThirds, getMapping]);
+    }, [previewSrc, meta, crop, zoom, pan, showThirds, getMapping, containerSize]);
 
-    // Resize observer to re-render on container size changes
+    // Resize observer to re-render and adjust view on container size changes
     useEffect(() => {
       const container = containerRef.current;
       if (!container) return;
-      const ro = new ResizeObserver(() => {
-        // Redraw
-        setZoom((z) => z);
+
+      const ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const width = Math.round(entry.contentRect.width);
+          const height = Math.round(entry.contentRect.height);
+          if (width <= 0 || height <= 0) continue;
+
+          setContainerSize((prev) => {
+            if (prev.width === width && prev.height === height) return prev;
+            return { width, height };
+          });
+
+          if (imageRef.current) {
+            const imgW = imageRef.current.width;
+            const imgH = imageRef.current.height;
+            if (imgW > 0 && imgH > 0) {
+              const pad = EDGE_MARGIN_PX * 2;
+              const availW = Math.max(10, width - pad);
+              const availH = Math.max(10, height - pad);
+              const newFitScale = Math.min(availW / imgW, availH / imgH, 1.0);
+
+              const wasAtFit = Math.abs(zoomRef.current - fitScaleRef.current) < 0.005;
+
+              setFitScale(newFitScale);
+
+              if (wasAtFit) {
+                setZoom(newFitScale);
+                setPan({
+                  x: (width - imgW * newFitScale) / 2,
+                  y: (height - imgH * newFitScale) / 2,
+                });
+                onZoomChange(1.0);
+              } else {
+                setPan((prevPan) => {
+                  return clampPan(
+                    prevPan,
+                    zoomRef.current,
+                    imgW,
+                    imgH,
+                    width,
+                    height,
+                    EDGE_MARGIN_PX
+                  );
+                });
+                onZoomChange(zoomRef.current / newFitScale);
+              }
+            }
+          }
+        }
       });
+
       ro.observe(container);
       return () => ro.disconnect();
-    }, []);
+    }, [onZoomChange]);
 
     // Pointer event handlers
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {

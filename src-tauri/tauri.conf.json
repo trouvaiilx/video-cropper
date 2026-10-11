@@ -13,6 +13,8 @@
     "windows": [
       {
         "title": "Video Cropper",
+        "label": "main",
+        "center": true,
         "width": 1080,
         "height": 720,
         "minWidth": 960,
