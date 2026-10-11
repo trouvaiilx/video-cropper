@@ -1,13 +1,12 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Build a single-file, windowed (no console) VideoCropper.exe with PyInstaller.
+  Build a single-file, windowed (no console) portable VideoCropper.exe with Rust + Tauri.
 
 .DESCRIPTION
-  Runs the test suite first (build aborts on failure), then bundles the app
-  into dist\VideoCropper.exe. FFmpeg/ffprobe are intentionally NOT bundled:
-  the exe resolves them via PATH, Tools -> Settings, or a bin\ folder placed
-  next to the exe (portable distribution).
+  Runs the test suite and frontend build first as gates, then compiles the
+  release Rust binary with embedded frontend and window icon, placing the
+  portable executable into dist\VideoCropper.exe.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File tools\build_windows.ps1
@@ -17,80 +16,45 @@ param()
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
-$VenvPython = Join-Path $Root ".venv\Scripts\python.exe"
-$DistExe = Join-Path $Root "dist\VideoCropper.exe"
-
-if (-not (Test-Path -LiteralPath $VenvPython)) {
-  throw "No .venv found. Run tools\setup_windows.ps1 first."
-}
+$ReleaseExe = Join-Path $Root "src-tauri\target\release\video-cropper.exe"
+$DistDir = Join-Path $Root "dist"
+$DistExe = Join-Path $DistDir "VideoCropper.exe"
 
 Push-Location $Root
 try {
-  $AppVersion = & $VenvPython -c "import video_cropper; print(video_cropper.__version__)"
-  if ($LASTEXITCODE -ne 0) { throw "Could not import video_cropper from .venv." }
-  Write-Host "==> Building Video Cropper $AppVersion (single file, windowed)" -ForegroundColor Cyan
+  Write-Host "==> Building Video Cropper (Rust + Tauri v2, Portable)" -ForegroundColor Cyan
 
-  Write-Host "==> Running test suite (gate)" -ForegroundColor Cyan
-  & $VenvPython -m pytest -q
-  if ($LASTEXITCODE -ne 0) { throw "Tests failed - build aborted." }
+  Write-Host "==> Running Rust test suite (gate)" -ForegroundColor Cyan
+  & cargo test --manifest-path src-tauri/Cargo.toml
+  if ($LASTEXITCODE -ne 0) { throw "Rust tests failed - build aborted." }
 
-  & $VenvPython -c "import PyInstaller" 2>$null
-  if ($LASTEXITCODE -ne 0) {
-    Write-Host "==> Installing build extra (PyInstaller)" -ForegroundColor Cyan
-    & $VenvPython -m pip install -e "$Root[build]"
-    if ($LASTEXITCODE -ne 0) { throw "Could not install PyInstaller." }
-  }
+  Write-Host "==> Building frontend assets (gate)" -ForegroundColor Cyan
+  & pnpm build
+  if ($LASTEXITCODE -ne 0) { throw "Frontend build failed - build aborted." }
 
   $Running = Get-Process -Name VideoCropper -ErrorAction SilentlyContinue
   if ($Running) {
-    throw "VideoCropper.exe is running (PID $($Running.Id -join ', ')). Close it before rebuilding."
-  }
-  if (Test-Path -LiteralPath $DistExe) { Remove-Item -LiteralPath $DistExe -Force }
-
-  # Optional artwork: assets\logo.png becomes the window icon (bundled data).
-  # The exe file icon additionally needs .ico: a ready-made assets\logo.ico
-  # wins; otherwise the PNG is converted on the fly (stdlib only), which
-  # requires it to be 256x256 or smaller - ICO entries cannot be larger.
-  $LogoPng = Join-Path $Root "assets\logo.png"
-  $IconArgs = @()
-  $DataArgs = @()
-  if (Test-Path -LiteralPath $LogoPng) {
-    $DataArgs = @("--add-data", "$LogoPng;assets")
-    $LogoIco = Join-Path $Root "assets\logo.ico"
-    if (Test-Path -LiteralPath $LogoIco) {
-      $IconArgs = @("--icon", $LogoIco)
-    } else {
-      $IcoOut = Join-Path ([System.IO.Path]::GetTempPath()) "VideoCropper_logo.ico"
-      & $VenvPython (Join-Path $Root "tools\png_to_ico.py") $LogoPng $IcoOut
-      if ($LASTEXITCODE -eq 0) {
-        $IconArgs = @("--icon", $IcoOut)
-      } else {
-        Write-Warning "No exe icon: place a 256x256 (or smaller) logo.png or a multi-size logo.ico in assets\."
-      }
-    }
-  } else {
-    Write-Host "No assets\logo.png found - building without icon." -ForegroundColor Yellow
+    throw "VideoCropper.exe is currently running. Close it before rebuilding."
   }
 
-  $PyArgs = @(
-    "-m", "PyInstaller",
-    "--noconfirm", "--clean",
-    "--name", "VideoCropper",
-    "--onefile", "--windowed",
-    "--paths", "src",
-    "--collect-submodules", "video_cropper",
-    "--exclude-module", "tkinter",
-    "src/video_cropper/__main__.py"
-  ) + $IconArgs + $DataArgs
-  Write-Host "==> Running PyInstaller" -ForegroundColor Cyan
-  & $VenvPython @PyArgs
-  if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed (exit $LASTEXITCODE)." }
+  Write-Host "==> Compiling optimized release binary with embedded assets" -ForegroundColor Cyan
+  & pnpm tauri build --no-bundle
+  if ($LASTEXITCODE -ne 0) { throw "Tauri release build failed (exit $LASTEXITCODE)." }
 
-  if (-not (Test-Path -LiteralPath $DistExe)) { throw "Expected output missing: $DistExe" }
-  $SizeMB = ((Get-Item -LiteralPath $DistExe).Length / 1MB).ToString("0.0")
+  if (-not (Test-Path -LiteralPath $ReleaseExe)) {
+    throw "Expected release output missing: $ReleaseExe"
+  }
+
+  if (-not (Test-Path -LiteralPath $DistDir)) {
+    New-Item -ItemType Directory -Path $DistDir -Force | Out-Null
+  }
+
+  Copy-Item -LiteralPath $ReleaseExe -Destination $DistExe -Force
+
+  $SizeMB = ((Get-Item -LiteralPath $DistExe).Length / 1MB).ToString("0.1")
   Write-Host ""
-  Write-Host "Built dist\VideoCropper.exe ($SizeMB MB)" -ForegroundColor Green
-  Write-Host "FFmpeg is external: keep ffmpeg.exe + ffprobe.exe on PATH,"
+  Write-Host "Successfully built dist\VideoCropper.exe ($SizeMB MB)" -ForegroundColor Green
+  Write-Host "Portable distribution: keep ffmpeg.exe + ffprobe.exe on PATH,"
   Write-Host "configure them in Tools -> Settings, or ship a bin\ folder next to the exe."
 } finally {
   Pop-Location

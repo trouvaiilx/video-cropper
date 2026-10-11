@@ -2,221 +2,125 @@
 
 # Video Cropper
 
-Minimalist, production-quality desktop utility for visually cropping video frames on Windows.
+Minimalist, high-performance desktop utility for visually cropping video frames on Windows.
 
-Built with **Python 3 + PySide6 (Qt 6) + FFmpeg**.
+Built with **Rust + Tauri v2 + React 19 + TypeScript + FFmpeg**.
 
 > Drag a rectangle over the region you want to **KEEP** — everything else (audio,
 > timing, color metadata) is preserved, and the source file is never modified.
 
+*(The legacy Python 3 / PySide6 implementation is archived in the `legacy/python-pyside6` branch).*
+
 ## Requirements
 
-- Windows 10/11 (primary target; no Windows-only APIs in the codebase)
-- Python 3.10+ (developed and tested on 3.11)
+- Windows 10/11 (WebView2 runtime is preinstalled on Windows 10/11)
+- Rust 1.78+ (tested on 1.98+)
+- Node.js 18+ and `pnpm` (or `npm`)
 - FFmpeg **and** ffprobe — install from https://ffmpeg.org/download.html
   (e.g. `winget install Gyan.FFmpeg`) and keep them on `PATH`,
   or point the app at them in **Tools → Settings**
 
-## Setup (isolated virtual environment — always)
+## Developer Setup
 
-One command per OS — creates `.venv`, installs the project with dev + build
-extras, and checks FFmpeg:
+One command on Windows PowerShell sets up frontend packages and verifies tools:
 
 ```powershell
-# Windows (PowerShell)
 powershell -ExecutionPolicy Bypass -File tools\setup_windows.ps1
 ```
 
-```bash
-# Linux / macOS
-./tools/setup_unix.sh
-```
-
-Then:
+Run in development mode:
 
 ```powershell
-.venv\Scripts\Activate.ps1   # Windows PowerShell (cmd.exe: .venv\Scripts\activate)
-# source .venv/bin/activate  # Linux / macOS
-python -m pytest -q
-python -m video_cropper
+pnpm tauri dev
 ```
 
-Manual equivalent (what the scripts do):
+Run test suite:
 
 ```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev,build]"
-python -c "import sys; print(sys.executable)"   # → ...\video-cropper\.venv\Scripts\python.exe
-ffmpeg -version
-ffprobe -version
+cargo test --manifest-path src-tauri/Cargo.toml
+pnpm build
 ```
 
-Linux note: PySide6 needs X11/Wayland client libs
-(`sudo apt install libegl1 libxkbcommon0 libdbus-1-3`) and `python3-venv`
-(`sudo apt install python3-venv`). macOS: `brew install python ffmpeg`.
+## Single-File Portable Executable (No Console Window)
 
-Never install project dependencies into the global Python. `.venv/` is git-ignored.
-
-## Single-file executable (no console window)
-
-The app bundles into one windowed executable via PyInstaller (tests run first
-as a build gate; FFmpeg stays external on purpose):
+The app compiles into a standalone, portable windowed executable:
 
 ```powershell
-# Windows → dist\VideoCropper.exe
 powershell -ExecutionPolicy Bypass -File tools\build_windows.ps1
 ```
 
-```bash
-# Linux → dist/VideoCropper | macOS → dist/VideoCropper.app
-./tools/build_unix.sh
-```
+Output: **`dist\VideoCropper.exe`** (~10 MB, no runtime installation needed).
 
-The exe has no console window. It still needs FFmpeg + ffprobe, resolved as:
-`Tools → Settings` override → `bin\` folder next to the exe (portable:
-ship `VideoCropper.exe` with `bin\ffmpeg.exe` + `bin\ffprobe.exe`) → system
-`PATH`. macOS note: the bundle is ad-hoc signed — on first launch,
-right-click → Open if Gatekeeper blocks it. `dist/` and `build/` are
-git-ignored; only source is committed.
-
-### Application icon
-
-Drop your artwork at **`assets/logo.png`** (repo root; committed like source).
-It is used in three places: this README header, the app window/taskbar icon
-at runtime, and — on Windows — the exe file icon. The exe icon needs `.ico`
-format: provide **`assets/logo.ico`** (multi-size, preferred) or keep
-`logo.png` at 256 px or smaller so the build can convert it on the fly with
-`tools/png_to_ico.py` (stdlib only, no extra dependency). A larger PNG still
-works for the window icon and README; only the exe file icon falls back to
-the default. macOS bundles additionally pick up `assets/logo.icns` when
-present; Linux uses the PNG.
+FFmpeg + ffprobe remain external binaries resolved in order:
+1. `Tools → Settings` custom path override
+2. `bin\` folder next to the executable (`VideoCropper.exe` with `bin\ffmpeg.exe` + `bin\ffprobe.exe`)
+3. System `PATH`
+4. `FFMPEG_HOME` environment variable
 
 ## Workflow
 
-1. **Open Video** (`Ctrl+O`) or drag a video file anywhere onto the window —
-   canvas included. A “Drop video file here” hint appears over the preview
-   while a video file hovers above it.
-2. Inspect source metadata (frame size, duration, fps, codecs) in the **Source** panel.
-3. **Left-drag** on the preview to draw the region to keep; drag inside to move,
-   drag the square handles to resize.
+1. **Open Video** (`Ctrl+O`) or drag a video file anywhere onto the window. A full-window drop overlay with a dashed border provides immediate visual feedback. Non-video files are gracefully intercepted with descriptive in-app guidance.
+2. Inspect source metadata (frame size, duration, fps, codecs, bit depth, file size) in the **Source** panel. Long filenames are cleanly truncated with hover tooltips to preserve the layout.
+3. **Left-drag** on the preview to draw the region to keep; drag inside to move, drag the corner/edge handles to resize.
 4. Pick an **aspect ratio** (or type a custom `W:H`); fine-tune **X / Y / Width / Height**.
-5. Zoom with **Ctrl + wheel** (cursor-centered, up to 800%), pan with **right-drag**,
-   scroll horizontally with **Shift + wheel**, scroll vertically in fine steps
-   with **Alt + wheel**, reset with **Fit** (`Ctrl+0`). The canvas keeps a
-   padding margin around the frame so edge handles stay grabbable when
-   zoomed in close.
-6. Choose output **Size** and **Encoder**, set the output file.
-7. **Start** (`Ctrl+R`) — watch %, position, speed and ETA. **Cancel** any time:
-   FFmpeg is terminated and the partial output is removed.
+5. **Navigate fluidly**:
+   - **Trackpad**: 2-finger swipe pans in 2D without clicking. `Ctrl` + 2-finger swipe zooms centered directly at the cursor.
+   - **Mouse**: Scroll wheel zooms centered at the cursor. Middle-click drag or right-click drag pans the canvas.
+   - **Keyboard & Toolbar**: `Ctrl + +` / `Ctrl + -` / `Ctrl + 0` (Fit) zoom toward the cursor or screen center.
+6. Preview playback directly in the app with the **Player Bar** (`Space` to toggle play/pause, seek slider, loop toggle).
+7. Choose output **Size** and **Encoder**, set the output file.
+8. **Start** (`Ctrl+R`) — monitor progress %, current time, processing speed, and ETA. **Cancel** anytime: FFmpeg terminates immediately and partial output is cleaned up.
+9. **Interactive Completion Toast**: When processing finishes, a persistent toast appears with quick actions:
+   - **Open Video**: Opens the output file in the default system media player without console flashes.
+   - **Open Explorer**: Opens Windows Explorer and selects/highlights the newly created video file.
+   - If processing fails, a persistent error toast offers **View Details** to inspect the full FFmpeg log.
 
-## Controls reference
+## Controls Reference
 
 | Input | Action |
 |---|---|
-| Left-drag (empty area) | Create crop |
-| Left-drag (inside crop) | Move crop |
-| Left-drag (square handle) | Resize crop |
-| Right-drag | Pan (when zoomed) |
-| Ctrl + wheel | Zoom, centered on cursor (fit … 800%) |
+| Left-drag (empty area) | Create crop rectangle |
+| Left-drag (inside crop) | Move crop rectangle |
+| Left-drag (square handle) | Resize crop rectangle |
+| Trackpad 2-finger swipe | Fluid 2D canvas pan (up, down, left, right) |
+| Right-drag / Middle-drag | Canvas pan (when zoomed) |
+| Mouse wheel / Ctrl + trackpad swipe | Zoom centered on cursor (fit … 800%) |
 | Shift + wheel | Scroll horizontally |
 | Alt + wheel | Scroll vertically in fine steps |
-| Ctrl+0 / Ctrl+= / Ctrl− | Fit / zoom in / zoom out |
-| Ctrl+O | Open video |
-| Ctrl+Shift+Q | Exit the application |
-| X / Y / W / H spinboxes | Exact crop in source pixels (synced both ways) |
+| Space | Toggle video playback (when video is loaded) |
+| Ctrl + 0 | Fit canvas to window |
+| Ctrl + = / Ctrl + − | Zoom in / Zoom out toward cursor |
+| Ctrl + O | Open video file dialog |
+| Ctrl + R | Start encoding process |
+| Ctrl + Shift + Q | Exit application |
+| X / Y / W / H inputs | Exact crop in source display pixels (synced both ways) |
 
-Crop coordinates are always stored in **source display pixels** (post-rotation,
-exactly what the FFmpeg `crop` filter sees) — zooming and panning can never
-corrupt them; the conversion lives in one place (`utils/coordinates.py`).
+Crop coordinates are always stored in **source display pixels** (post-rotation, exactly what the FFmpeg `crop` filter sees) — zooming and panning never corrupt them.
 
-## Output sizes
+## Output Sizes
 
-Presets scale the **long side** preserving the crop aspect (always snapped even
-for 4:2:0 compatibility): `720p→1280 · 1080p→1920 · 1440p→2560 · 4K→3840`.
+Presets scale the **long side** preserving the crop aspect (always snapped even for 4:2:0 compatibility): `720p→1280 · 1080p→1920 · 1440p→2560 · 4K→3840`.
 **Original Crop** keeps crop pixels 1:1. Editing pixels directly implies **Custom**.
-Upscaling is never automatic — if the output is larger than the crop you get an
-explicit warning. Crop origin and dimensions are snapped down to even values
-at encode time (at most 1 px) as required by 4:2:0 H.264/H.265.
+Upscaling is never automatic — if the output is larger than the crop, an explicit warning is displayed.
 
 ## Encoders
 
-`CPU · H.264 (libx264, CRF 18, medium)` — default, works everywhere.
-`NVIDIA NVENC · H.264 / H.265` — listed only when your FFmpeg build actually
-provides them; otherwise greyed out with “(unavailable)”. Detection runs at
-load time (`ffmpeg -encoders`). Audio is stream-copied (`-c:a copy`) whenever
-the source has an audio stream; audio-less files are handled gracefully.
+- `CPU · H.264 (libx264, CRF 18, medium)` — default, universal compatibility.
+- `NVIDIA NVENC · H.264 / H.265` — listed only when your FFmpeg build provides them; otherwise marked with “(unavailable)” and disabled.
 
-Rotation (phone footage) is handled end to end: the preview shows autorotated
-frames, the crop applies in display space, and stale `rotate` metadata is
-cleared on the output so no player double-rotates it.
+Audio is stream-copied (`-c:a copy`) whenever the source has audio; audio-less files are handled gracefully.
 
-## Output safety
+## Output Safety & Error Handling
 
-- The output path defaults to `<name>_cropped.<ext>` next to the input and can
-  never equal the input — that job is refused with an explanation.
-- Existing outputs require explicit overwrite confirmation.
-- Cancel/close mid-encode kills FFmpeg (`QProcess`), waits, and deletes only the
-  partial output. The source is only ever opened read-only.
+- The output path defaults to `<name>_cropped.<ext>` next to the input and can never equal the input.
+- Existing outputs require explicit overwrite confirmation modal.
+- Cancel mid-encode terminates FFmpeg, waits, and deletes only the partial output. The source is only ever opened read-only.
+- **Zero intrusive native alerts**: All errors, diagnostics, and notifications are handled in-app via non-blocking notifications and structured dialog modals.
 
-## Settings (persisted via QSettings)
+## Settings
 
-Window geometry, last folders, encoder, ratio, resolution preset, custom
-FFmpeg/ffprobe paths, grid toggle. Per-video crop rects are deliberately
-**never** persisted.
-
-**Tools → Diagnostics** shows versions, input/crop/output state and the exact
-FFmpeg command — one click copies it for bug reports.
-
-## Architecture
-
-```
-video_cropper/
-  pyproject.toml   Python + PySide6 + dev/build extras
-  .gitattributes   LF line endings, binary handling, archive exclusions
-  tools/
-    setup_windows.ps1  one-command dev setup (venv + deps + FFmpeg check)
-    setup_unix.sh      same for Linux / macOS
-    build_windows.ps1  test gate + one-file windowed dist\VideoCropper.exe
-    build_unix.sh      same → dist/VideoCropper[.app]
-  src/video_cropper/
-    app/        application factory + MainWindow (layout & wiring only)
-    models/     CropConfig · VideoMetadata · ProcessingJob  ← source of truth
-    ffmpeg/     resolver · probe · preview · encoder · command_builder · process · progress
-    graphics/   CropScene · CropView · CropRectItem · handles · dim overlay · guides
-    ui/         theme · crop/output/metadata/progress panels · dialogs
-    services/   video_service (worker thread) · processing_service · settings_service
-    utils/      coordinates · validation · time · paths
-  tests/        crop · coordinates · ratios · ffmpeg commands · progress · sizes · orientation · resolver
-```
-
-Rules: the GUI never builds FFmpeg syntax (only `command_builder` does);
-progress parsing is pure (`ffmpeg/progress.py`); long work never blocks the UI
-thread (probe/preview in a `QThread`, encoding in `QProcess` with `-progress pipe:1`).
-See `ARCHITECTURE.md` for the data-flow diagram and failure-point analysis.
-
-## Troubleshooting
-
-| Symptom | Cause / fix |
-|---|---|
-| “FFmpeg could not be found” | Install FFmpeg + ffprobe, or set paths in Tools → Settings |
-| “No video stream found” | File has no decodable video stream (or is corrupt) |
-| NVENC entries unavailable | Your FFmpeg build lacks NVENC or no NVIDIA GPU/driver — use CPU H.264 |
-| Output is rotated wrong | Source had exotic rotation metadata — file an issue with Tools → Diagnostics output |
-| 10-bit source, 8-bit-looking output | libx264 builds are usually 8-bit; H.265/NVENC preserves depth better |
-| Built exe says “FFmpeg could not be found” | The exe does not bundle FFmpeg — put it on PATH, set Tools → Settings, or ship `bin\` next to the exe |
-
-Errors show a one-line explanation; technical details stay expandable in the
-dialog instead of a raw traceback.
-
-## Git workflow
-
-Conventional commits per phase (`feat: …`, `fix: …`, `refactor: …`,
-`test: …`, `docs: …`, `chore: …`). Check `git log --oneline` — history is the
-design record. Never commit `.venv/`, previews, encodes, or temp files
-(all covered by `.gitignore`).
+Settings (last directories, encoder, ratio, resolution preset, custom FFmpeg paths, grid toggle) are persisted in `%APPDATA%\VideoCropper\settings.json`. Per-video crop rectangles are deliberately never persisted.
 
 ## License
 
-MIT
+This project is licensed under the [MIT License](LICENSE).

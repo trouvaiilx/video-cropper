@@ -60,3 +60,14 @@ Desktop.ini
 # Secrets / machine-specific
 *.env
 config.local.json
+
+# Node / Frontend
+node_modules/
+.pnpm-store/
+dist/
+
+# Rust / Tauri
+src-tauri/target/
+
+# Agents
+.agent/
