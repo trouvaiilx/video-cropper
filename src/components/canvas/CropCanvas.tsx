@@ -110,55 +110,88 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       onZoomChange(scale / scale); // 100% relative to fit
     }, [onZoomChange]);
 
+    // Cursor position tracking for zoom navigation
+    const mousePosRef = useRef<{ x: number; y: number; inside: boolean }>({
+      x: 0,
+      y: 0,
+      inside: false,
+    });
+
     // Zoom centered at arbitrary viewport point
     const zoomAtPoint = useCallback(
       (point: { x: number; y: number }, factor: number) => {
-        setZoom((prevZoom) => {
-          const minZ = fitScaleRef.current;
-          const maxZ = fitScaleRef.current * 8.0;
-          const newZoom = clamp(prevZoom * factor, minZ, maxZ);
-          if (Math.abs(newZoom - prevZoom) < 1e-4) return prevZoom;
+        if (!containerRef.current || !imageRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
 
-          setPan((prevPan) => {
-            const scaleRatio = newZoom / prevZoom;
-            const newPanX = point.x - (point.x - prevPan.x) * scaleRatio;
-            const newPanY = point.y - (point.y - prevPan.y) * scaleRatio;
+        const prevZoom = zoomRef.current;
+        const prevPan = panRef.current;
+        const minZ = fitScaleRef.current;
+        const maxZ = fitScaleRef.current * 8.0;
 
-            if (containerRef.current && imageRef.current) {
-              const rect = containerRef.current.getBoundingClientRect();
-              return clampPan(
-                { x: newPanX, y: newPanY },
-                newZoom,
-                imageRef.current.width,
-                imageRef.current.height,
-                rect.width,
-                rect.height,
-                EDGE_MARGIN_PX
-              );
-            }
-            return { x: newPanX, y: newPanY };
-          });
+        const newZoom = clamp(prevZoom * factor, minZ, maxZ);
+        if (Math.abs(newZoom - prevZoom) < 1e-4) return;
 
-          onZoomChange(newZoom / fitScaleRef.current);
-          return newZoom;
-        });
+        const imgW = imageRef.current.width;
+        const imgH = imageRef.current.height;
+
+        // When zoomed all the way out to fit view, center the image
+        if (newZoom <= minZ + 1e-4) {
+          const centeredPan = {
+            x: (rect.width - imgW * newZoom) / 2,
+            y: (rect.height - imgH * newZoom) / 2,
+          };
+          zoomRef.current = newZoom;
+          panRef.current = centeredPan;
+          setZoom(newZoom);
+          setPan(centeredPan);
+          onZoomChange(1.0);
+          return;
+        }
+
+        const scaleRatio = newZoom / prevZoom;
+        const newPanX = point.x - (point.x - prevPan.x) * scaleRatio;
+        const newPanY = point.y - (point.y - prevPan.y) * scaleRatio;
+
+        const clamped = clampPan(
+          { x: newPanX, y: newPanY },
+          newZoom,
+          imgW,
+          imgH,
+          rect.width,
+          rect.height,
+          EDGE_MARGIN_PX
+        );
+
+        zoomRef.current = newZoom;
+        panRef.current = clamped;
+        setZoom(newZoom);
+        setPan(clamped);
+        onZoomChange(newZoom / fitScaleRef.current);
       },
       [onZoomChange]
     );
 
-    const zoomIn = useCallback(() => {
-      if (!containerRef.current || !imageRef.current) return;
+    const getZoomTargetPoint = useCallback((): { x: number; y: number } => {
+      if (!containerRef.current) return { x: 0, y: 0 };
       const rect = containerRef.current.getBoundingClientRect();
       const center = { x: rect.width / 2, y: rect.height / 2 };
-      zoomAtPoint(center, 1.25);
-    }, [zoomAtPoint]);
+
+      if (mousePosRef.current.inside) {
+        const mx = clamp(mousePosRef.current.x, 0, rect.width);
+        const my = clamp(mousePosRef.current.y, 0, rect.height);
+        return { x: mx, y: my };
+      }
+      return center;
+    }, []);
+
+    const zoomIn = useCallback(() => {
+      zoomAtPoint(getZoomTargetPoint(), 1.25);
+    }, [zoomAtPoint, getZoomTargetPoint]);
 
     const zoomOut = useCallback(() => {
-      if (!containerRef.current || !imageRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const center = { x: rect.width / 2, y: rect.height / 2 };
-      zoomAtPoint(center, 0.8);
-    }, [zoomAtPoint]);
+      zoomAtPoint(getZoomTargetPoint(), 0.8);
+    }, [zoomAtPoint, getZoomTargetPoint]);
 
     useImperativeHandle(ref, () => ({
       fitView,
@@ -536,8 +569,8 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
-      // Right-click: Pan
-      if (e.button === 2) {
+      // Right-click or Middle-click: Pan
+      if (e.button === 2 || e.button === 1) {
         interactionModeRef.current = 'panning';
         panStartRef.current = { x: mouseX - panRef.current.x, y: mouseY - panRef.current.y };
         isInteractingRef.current = true;
@@ -605,6 +638,7 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       }
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
+      mousePosRef.current = { x: mouseX, y: mouseY, inside: true };
 
       if (!isInteractingRef.current) {
         // Update hover cursor
@@ -788,20 +822,63 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       };
     }, []);
 
-    // Native wheel listener with { passive: false } for robust prevention and clamping
-    useEffect(() => {
-      const container = containerRef.current;
-      if (!container) return;
+    // Touch pinch-to-zoom support for touchscreens / precision devices
+    const touchDistRef = useRef<number | null>(null);
 
-      const handleWheelNative = (e: WheelEvent) => {
+    const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+      if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        touchDistRef.current = dist;
+      }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+      if (e.touches.length === 2 && touchDistRef.current !== null && containerRef.current) {
         e.preventDefault();
-        e.stopPropagation();
+        const rect = containerRef.current.getBoundingClientRect();
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
 
-        if (!imageRef.current || cropViewRef.current) return;
+        if (dist > 10 && touchDistRef.current > 10) {
+          const factor = dist / touchDistRef.current;
+          zoomAtPoint({ x: midX, y: midY }, factor);
+        }
+        touchDistRef.current = dist;
+      }
+    };
+
+    const handleTouchEnd = () => {
+      touchDistRef.current = null;
+    };
+
+    // Native wheel listener with { passive: false } attached to window for reliable trackpad pinch capture
+    useEffect(() => {
+      const handleWheelNative = (e: WheelEvent) => {
+        const container = containerRef.current;
+        if (!container || !imageRef.current || cropViewRef.current) return;
 
         const rect = container.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
+
+        // Verify the cursor or pinch centroid is within the canvas
+        const isOver =
+          mouseX >= 0 &&
+          mouseX <= rect.width &&
+          mouseY >= 0 &&
+          mouseY <= rect.height;
+
+        if (!isOver) return;
+
+        e.preventDefault();
+        e.stopPropagation();
 
         // Normalize delta across line/pixel modes
         let dx = e.deltaX;
@@ -819,12 +896,19 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
         const imgW = imageRef.current.width;
         const imgH = imageRef.current.height;
 
+        // 1. Pinch-to-zoom (Trackpad) or Ctrl + Wheel (Mouse)
         if (e.ctrlKey) {
-          // Cursor-centered zoom
-          const factor = dy < 0 ? 1.15 : 1 / 1.15;
+          const isDiscreteMouse =
+            e.deltaMode === 1 || (Math.abs(dy) >= 50 && Number.isInteger(dy) && e.deltaX === 0);
+          const factor = isDiscreteMouse
+            ? (dy < 0 ? 1.15 : 1 / 1.15)
+            : Math.max(0.75, Math.min(1.35, Math.exp(-dy * 0.02)));
           zoomAtPoint({ x: mouseX, y: mouseY }, factor);
-        } else if (e.shiftKey) {
-          // Horizontal scroll (smooth quarter-notch if Alt is also pressed)
+          return;
+        }
+
+        // 2. Explicit Shift + Wheel: Horizontal pan
+        if (e.shiftKey) {
           const factor = e.altKey ? 0.25 : 1.0;
           const rawDelta = dx !== 0 ? dx : dy;
           const delta = rawDelta * factor;
@@ -838,9 +922,13 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
             rect.height,
             EDGE_MARGIN_PX
           );
+          panRef.current = clamped;
           setPan(clamped);
-        } else if (e.altKey) {
-          // Alt + wheel: Smooth vertical scroll (quarter-notch for fine precision work)
+          return;
+        }
+
+        // 3. Explicit Alt + Wheel: Fine vertical pan
+        if (e.altKey) {
           const delta = dy * 0.25;
           const targetPan = { x: currentPan.x, y: currentPan.y - delta };
           const clamped = clampPan(
@@ -852,10 +940,25 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
             rect.height,
             EDGE_MARGIN_PX
           );
+          panRef.current = clamped;
           setPan(clamped);
-        } else {
-          // Normal vertical scroll
-          const targetPan = { x: currentPan.x, y: currentPan.y - dy };
+          return;
+        }
+
+        // 4. Auto-detect Trackpad 2-finger swipe vs Physical Mouse Wheel:
+        // - Trackpad 2-finger gestures on Windows emit pixel deltas (deltaMode === 0)
+        //   with continuous/fractional values or simultaneous X+Y movement.
+        // - Physical mouse wheels emit line deltas (deltaMode === 1) or large discrete steps (>= 50) with dx === 0.
+        const isTrackpad =
+          e.deltaMode === 0 &&
+          (Math.abs(e.deltaX) > 0 || !Number.isInteger(e.deltaY) || Math.abs(e.deltaY) < 50);
+
+        if (isTrackpad) {
+          // Trackpad 2-finger swipe: Fluid 2D pan following fingers in any direction
+          const targetPan = {
+            x: currentPan.x - dx,
+            y: currentPan.y - dy,
+          };
           const clamped = clampPan(
             targetPan,
             currentZoom,
@@ -865,27 +968,54 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
             rect.height,
             EDGE_MARGIN_PX
           );
+          panRef.current = clamped;
           setPan(clamped);
+        } else {
+          // Physical mouse wheel: Cursor-centered zoom
+          const factor = dy < 0 ? 1.15 : 1 / 1.15;
+          zoomAtPoint({ x: mouseX, y: mouseY }, factor);
         }
       };
 
-      container.addEventListener('wheel', handleWheelNative, { passive: false });
+      window.addEventListener('wheel', handleWheelNative, { passive: false });
       return () => {
-        container.removeEventListener('wheel', handleWheelNative);
+        window.removeEventListener('wheel', handleWheelNative);
       };
     }, [zoomAtPoint]);
 
     return (
       <div
         ref={containerRef}
-        className="relative w-full h-full overflow-hidden bg-bg-dark outline-none select-none"
+        style={{ touchAction: 'none' }}
+        className="relative w-full h-full overflow-hidden bg-bg-dark outline-none select-none touch-none"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        onMouseEnter={(e) => {
+          if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            mousePosRef.current = {
+              x: e.clientX - rect.left,
+              y: e.clientY - rect.top,
+              inside: true,
+            };
+          }
+        }}
+        onMouseLeave={() => {
+          handleMouseUp();
+          mousePosRef.current.inside = false;
+        }}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <canvas ref={canvasRef} className="absolute inset-0 block w-full h-full" />
+        <canvas
+          ref={canvasRef}
+          style={{ touchAction: 'none' }}
+          className="absolute inset-0 block w-full h-full touch-none"
+        />
       </div>
     );
   }

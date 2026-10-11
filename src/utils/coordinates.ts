@@ -58,23 +58,17 @@ export function clampPan(
   const curW = imgW * zoom;
   const curH = imgH * zoom;
 
-  let x: number;
-  if (curW <= viewW) {
-    x = (viewW - curW) / 2;
-  } else {
-    const minX = viewW - margin - curW;
-    const maxX = margin;
-    x = clamp(pan.x, minX, maxX);
-  }
+  const boundX1 = margin;
+  const boundX2 = viewW - margin - curW;
+  const minX = Math.min(boundX1, boundX2);
+  const maxX = Math.max(boundX1, boundX2);
+  const x = clamp(pan.x, minX, maxX);
 
-  let y: number;
-  if (curH <= viewH) {
-    y = (viewH - curH) / 2;
-  } else {
-    const minY = viewH - margin - curH;
-    const maxY = margin;
-    y = clamp(pan.y, minY, maxY);
-  }
+  const boundY1 = margin;
+  const boundY2 = viewH - margin - curH;
+  const minY = Math.min(boundY1, boundY2);
+  const maxY = Math.max(boundY1, boundY2);
+  const y = clamp(pan.y, minY, maxY);
 
   return { x, y };
 }
