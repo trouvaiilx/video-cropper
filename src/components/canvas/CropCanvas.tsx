@@ -14,6 +14,12 @@ interface CropCanvasProps {
   crop: CropConfig;
   ratioLock: number | null;
   showThirds: boolean;
+  /** Shared, hidden <video> used for playback (frames are drawn onto the canvas). */
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  /** True once the video element holds a decodable source. */
+  videoReady: boolean;
+  /** Render only the cropped region (what will be exported) instead of the editor view. */
+  cropView: boolean;
   onCropChange: (crop: CropConfig) => void;
   onZoomChange: (zoom: number) => void;
 }
@@ -31,6 +37,9 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       crop,
       ratioLock,
       showThirds,
+      videoRef,
+      videoReady,
+      cropView,
       onCropChange,
       onZoomChange,
     },
@@ -52,6 +61,10 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
     panRef.current = pan;
     const fitScaleRef = useRef<number>(fitScale);
     fitScaleRef.current = fitScale;
+    const cropViewRef = useRef<boolean>(cropView);
+    cropViewRef.current = cropView;
+    // Latest draw function; the video frame loop calls it directly (no React render per frame).
+    const drawRef = useRef<() => void>(() => {});
 
     // Interaction states
     const isInteractingRef = useRef<boolean>(false);
@@ -204,8 +217,20 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       return -1;
     };
 
+    // Current frame source: the live video once ready, otherwise the still preview.
+    // Both share the same aspect ratio, so the video is simply scaled into the
+    // still's coordinate space; crop math stays in display-pixel fractions.
+    const getDrawSource = (): { src: CanvasImageSource; w: number; h: number } | null => {
+      const v = videoRef.current;
+      if (videoReady && v && v.videoWidth > 0 && v.videoHeight > 0) {
+        return { src: v, w: v.videoWidth, h: v.videoHeight };
+      }
+      const img = imageRef.current;
+      return img ? { src: img, w: img.width, h: img.height } : null;
+    };
+
     // Render Canvas
-    useEffect(() => {
+    const draw = useCallback(() => {
       const canvas = canvasRef.current;
       const container = containerRef.current;
       if (!canvas || !container) return;
@@ -213,31 +238,73 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       const rect = container.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
 
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
+      // Assigning width/height reallocates the bitmap; skip when unchanged (matters at 30+ fps).
+      const bw = Math.round(rect.width * dpr);
+      const bh = Math.round(rect.height * dpr);
+      if (canvas.width !== bw || canvas.height !== bh) {
+        canvas.width = bw;
+        canvas.height = bh;
+      }
 
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
       ctx.save();
-      ctx.scale(dpr, dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       // Background
       ctx.fillStyle = '#181818';
       ctx.fillRect(0, 0, rect.width, rect.height);
 
+      // Crop view: only the cropped region, fitted to the viewport (export preview).
+      if (cropView && meta && crop.width > 0 && crop.height > 0) {
+        const s = getDrawSource();
+        if (s) {
+          const fx = s.w / meta.display_width;
+          const fy = s.h / meta.display_height;
+          const pad = EDGE_MARGIN_PX;
+          const scale = Math.min(
+            Math.max(10, rect.width - pad * 2) / crop.width,
+            Math.max(10, rect.height - pad * 2) / crop.height
+          );
+          const dw = crop.width * scale;
+          const dh = crop.height * scale;
+          const dx = Math.round((rect.width - dw) / 2);
+          const dy = Math.round((rect.height - dh) / 2);
+
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(
+            s.src,
+            crop.x * fx,
+            crop.y * fy,
+            crop.width * fx,
+            crop.height * fy,
+            dx,
+            dy,
+            dw,
+            dh
+          );
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(dx - 0.5, dy - 0.5, dw + 1, dh + 1);
+        }
+        ctx.restore();
+        return;
+      }
+
       if (imageRef.current && meta) {
         const img = imageRef.current;
         const mapping = getMapping();
 
-        // 1. Draw image
+        // 1. Draw image (live video frame when playback is ready)
         const imgScreen = {
           x: pan.x,
           y: pan.y,
           w: img.width * zoom,
           h: img.height * zoom,
         };
-        ctx.drawImage(img, imgScreen.x, imgScreen.y, imgScreen.w, imgScreen.h);
+        const frame = getDrawSource();
+        ctx.drawImage(frame ? frame.src : img, imgScreen.x, imgScreen.y, imgScreen.w, imgScreen.h);
 
         // 2. Compute crop in screen space
         if (mapping && crop.width > 0 && crop.height > 0) {
@@ -348,7 +415,57 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       }
 
       ctx.restore();
-    }, [previewSrc, meta, crop, zoom, pan, showThirds, getMapping, containerSize]);
+    }, [previewSrc, meta, crop, zoom, pan, showThirds, getMapping, containerSize, cropView, videoReady]);
+
+    // Redraw whenever view state changes; keep drawRef pointing at the latest closure.
+    drawRef.current = draw;
+    useEffect(() => {
+      draw();
+    }, [draw]);
+
+    // Video-driven redraws: a frame loop only while playing (throttled to the video's fps),
+    // plus single redraws on seek/load. Nothing runs while paused.
+    const fps = meta?.fps && meta.fps > 0 ? meta.fps : 30;
+    useEffect(() => {
+      const v = videoRef.current;
+      if (!videoReady || !v) return;
+
+      const minInterval = (1000 / Math.min(60, fps)) * 0.8;
+      let raf = 0;
+      let lastDraw = 0;
+
+      const loop = (now: number) => {
+        raf = requestAnimationFrame(loop);
+        if (now - lastDraw >= minInterval) {
+          lastDraw = now;
+          drawRef.current();
+        }
+      };
+      const onPlay = () => {
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(loop);
+      };
+      const onPause = () => {
+        cancelAnimationFrame(raf);
+        drawRef.current();
+      };
+      const redraw = () => drawRef.current();
+
+      v.addEventListener('play', onPlay);
+      v.addEventListener('pause', onPause);
+      v.addEventListener('seeked', redraw);
+      v.addEventListener('loadeddata', redraw);
+      if (!v.paused) onPlay();
+      drawRef.current();
+
+      return () => {
+        cancelAnimationFrame(raf);
+        v.removeEventListener('play', onPlay);
+        v.removeEventListener('pause', onPause);
+        v.removeEventListener('seeked', redraw);
+        v.removeEventListener('loadeddata', redraw);
+      };
+    }, [videoReady, videoRef, fps]);
 
     // Resize observer to re-render and adjust view on container size changes
     useEffect(() => {
@@ -411,7 +528,7 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
 
     // Pointer event handlers
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!imageRef.current || !meta) return;
+      if (cropView || !imageRef.current || !meta) return;
       const mapping = getMapping();
       if (!mapping) return;
 
@@ -482,6 +599,10 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect || !imageRef.current || !meta) return;
+      if (cropView) {
+        containerRef.current!.style.cursor = 'default';
+        return;
+      }
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
@@ -676,7 +797,7 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
         e.preventDefault();
         e.stopPropagation();
 
-        if (!imageRef.current) return;
+        if (!imageRef.current || cropViewRef.current) return;
 
         const rect = container.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;

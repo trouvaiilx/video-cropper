@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import {
   AspectRatio,
@@ -23,6 +23,14 @@ import { CropControlsPanel } from './components/panels/CropControlsPanel';
 import { OutputControlsPanel } from './components/panels/OutputControlsPanel';
 import { ProgressPanel } from './components/panels/ProgressPanel';
 import { Toolbar } from './components/Toolbar';
+import { PlayerBar } from './components/player/PlayerBar';
+import {
+  NO_PLAYBACK,
+  PlaybackState,
+  attachSource,
+  previewSeekTime,
+  resetVideo,
+} from './utils/playback';
 import { DropOverlay } from './components/DropOverlay';
 import { SettingsModal } from './components/dialogs/SettingsModal';
 import { DiagnosticsModal } from './components/dialogs/DiagnosticsModal';
@@ -32,6 +40,67 @@ import { AboutModal } from './components/dialogs/AboutModal';
 export const App: React.FC = () => {
   // References
   const canvasRef = useRef<CropCanvasHandle>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const playbackToken = useRef(0);
+
+  // Playback (native <video>, proxy fallback) & crop view
+  const [playback, setPlayback] = useState<PlaybackState>(NO_PLAYBACK);
+  const [cropView, setCropView] = useState<boolean>(false);
+
+  const resetPlayback = useCallback(() => {
+    playbackToken.current += 1;
+    invoke('cancel_playback_proxy').catch(() => {});
+    if (videoRef.current) resetVideo(videoRef.current);
+    setPlayback(NO_PLAYBACK);
+  }, []);
+
+  // Native decode first; if the webview can't decode the file, build a small proxy.
+  // `playbackToken` makes superseded loads harmless (results are dropped, never applied).
+  const setupPlayback = useCallback(
+    async (filePath: string, metadata: VideoMetadata, ffmpegExe: string) => {
+      const video = videoRef.current;
+      if (!video) return;
+
+      const token = ++playbackToken.current;
+      const stale = () => token !== playbackToken.current;
+      const start = previewSeekTime(metadata.duration);
+      const aspect = metadata.display_width / Math.max(1, metadata.display_height);
+
+      setPlayback({ status: 'preparing', kind: null });
+      try {
+        await invoke('allow_playback', { path: filePath });
+        if (stale()) return;
+
+        if (await attachSource(video, convertFileSrc(filePath), start, aspect)) {
+          if (!stale()) setPlayback({ status: 'ready', kind: 'native' });
+          return;
+        }
+        if (stale()) return;
+
+        resetVideo(video);
+        const proxyPath = await invoke<string>('build_playback_proxy', {
+          path: filePath,
+          ffmpegExe,
+        });
+        if (stale()) return;
+
+        if (await attachSource(video, convertFileSrc(proxyPath), start, aspect)) {
+          if (!stale()) setPlayback({ status: 'ready', kind: 'proxy' });
+          return;
+        }
+        if (stale()) return;
+        resetVideo(video);
+        setPlayback({ status: 'unavailable', kind: null });
+      } catch (e) {
+        console.error('Playback setup failed:', e);
+        if (!stale()) {
+          resetVideo(video);
+          setPlayback({ status: 'unavailable', kind: null });
+        }
+      }
+    },
+    []
+  );
 
   // Tools & Settings
   const [tools, setTools] = useState<ToolPaths | null>(null);
@@ -153,6 +222,7 @@ export const App: React.FC = () => {
         return;
       }
       try {
+        resetPlayback();
         setStatusMessage(`Loading ${filePath.split(/[/\\]/).pop()}…`);
 
         // Probe metadata
@@ -169,6 +239,9 @@ export const App: React.FC = () => {
           duration: metadata.duration,
         });
         setPreviewSrc(dataUrl);
+
+        // Start the player in the background (native decode, proxy fallback)
+        void setupPlayback(filePath, metadata, tools.ffmpeg);
 
         // Detect encoders
         const detectedEncoders = await invoke<EncoderInfo[]>('get_encoders', {
@@ -227,7 +300,7 @@ export const App: React.FC = () => {
         alert(`Could not open video:\n${err}`);
       }
     },
-    [tools, settings, outputPreset]
+    [tools, settings, outputPreset, resetPlayback, setupPlayback]
   );
 
   // File Picker
@@ -296,6 +369,7 @@ export const App: React.FC = () => {
   // Encoding
   const executeStartEncode = async (allowOverwrite: boolean) => {
     if (!meta || !tools) return;
+    videoRef.current?.pause();
 
     const job: ProcessingJob = {
       input_path: meta.path,
@@ -450,19 +524,46 @@ export const App: React.FC = () => {
 
       {/* Main Workspace (Canvas + Side Panel) */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left: Viewport / Interactive Canvas */}
-        <div className="flex-1 h-full relative overflow-hidden bg-bg-dark">
-          <CropCanvas
-            ref={canvasRef}
-            previewSrc={previewSrc}
-            meta={meta}
-            crop={crop}
-            ratioLock={getRatioValue(selectedRatio)}
-            showThirds={showThirds}
-            onCropChange={handleCropChange}
-            onZoomChange={setZoomPercent}
+        {/* Left: Viewport / Interactive Canvas + Player */}
+        <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden bg-bg-dark">
+          <div className="flex-1 min-h-0 relative overflow-hidden">
+            <CropCanvas
+              ref={canvasRef}
+              previewSrc={previewSrc}
+              meta={meta}
+              crop={crop}
+              ratioLock={getRatioValue(selectedRatio)}
+              showThirds={showThirds}
+              videoRef={videoRef}
+              videoReady={playback.status === 'ready'}
+              cropView={cropView}
+              onCropChange={handleCropChange}
+              onZoomChange={setZoomPercent}
+            />
+            <DropOverlay isDragging={isDraggingFile} />
+          </div>
+
+          <PlayerBar
+            videoRef={videoRef}
+            status={playback.status}
+            kind={playback.kind}
+            duration={meta?.duration || 0}
+            fps={meta?.fps || 30}
+            cropView={cropView}
+            hasVideo={!!meta}
+            shortcutsEnabled={!settingsOpen && !diagnosticsOpen && !aboutOpen && !overwriteModalPath}
+            onToggleCropView={() => setCropView((v) => !v)}
           />
-          <DropOverlay isDragging={isDraggingFile} />
+
+          {/* Decode surface for the player; frames are painted onto the canvas, never shown directly. */}
+          <video
+            ref={videoRef}
+            muted
+            loop
+            playsInline
+            preload="auto"
+            className="absolute w-px h-px opacity-0 pointer-events-none"
+          />
         </div>
 
         {/* Right: Controls & Info Sidebar */}

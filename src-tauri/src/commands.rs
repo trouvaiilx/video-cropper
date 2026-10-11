@@ -1,16 +1,18 @@
 use crate::ffmpeg::{
-    args_to_display, build_ffmpeg_args, detect_encoders, extract_preview as run_extract_preview,
-    find_tool, preview_seek_time, probe_video as run_probe_video, resolve_tools, tool_version,
-    EncoderInfo, ProcessManager, ToolPaths,
+    args_to_display, build_ffmpeg_args, build_proxy as run_build_proxy, cancel_proxy,
+    detect_encoders, extract_preview as run_extract_preview, find_tool, preview_seek_time,
+    probe_video as run_probe_video, resolve_tools, tool_version, EncoderInfo, ProcessManager,
+    ProxySlot, ToolPaths,
 };
 use crate::models::{ProcessingJob, VideoMetadata};
 use crate::services::{load_settings, save_settings, AppSettings};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 pub struct AppState {
     pub process_mgr: Arc<ProcessManager>,
+    pub proxy: ProxySlot,
 }
 
 #[tauri::command]
@@ -39,6 +41,46 @@ pub fn extract_preview(
 ) -> Result<String, String> {
     let seek = preview_seek_time(duration);
     run_extract_preview(&path, &ffmpeg_exe, Some(seek), Some(1920))
+}
+
+/// Grants the webview's asset protocol read access to exactly one file, so the
+/// player can stream it with Range requests (no whole-disk scope).
+#[tauri::command]
+pub fn allow_playback(app: AppHandle, path: String) -> Result<(), String> {
+    let p = Path::new(&path);
+    if !p.is_file() {
+        return Err(format!("File not found: {}", path));
+    }
+    app.asset_protocol_scope()
+        .allow_file(p)
+        .map_err(|e| e.to_string())
+}
+
+/// Fallback for sources the webview cannot decode: builds (or reuses) a small
+/// video-only H.264 proxy and returns its path.
+#[tauri::command]
+pub async fn build_playback_proxy(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    path: String,
+    ffmpeg_exe: String,
+) -> Result<String, String> {
+    let slot = state.proxy.clone();
+    let proxy_path = tauri::async_runtime::spawn_blocking(move || {
+        run_build_proxy(&slot, &path, &ffmpeg_exe)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    app.asset_protocol_scope()
+        .allow_file(Path::new(&proxy_path))
+        .map_err(|e| e.to_string())?;
+    Ok(proxy_path)
+}
+
+#[tauri::command]
+pub fn cancel_playback_proxy(state: State<'_, AppState>) {
+    cancel_proxy(&state.proxy);
 }
 
 #[tauri::command]

@@ -26,3 +26,12 @@ export function formatFileSize(bytes: number): string {
   }
   return `${bytes.toLocaleString()} bytes`;
 }
+
+export function formatPlayerTime(seconds: number | undefined | null): string {
+  const s = Math.max(0, seconds && isFinite(seconds) ? seconds : 0);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = (s % 60).toFixed(1).padStart(4, '0');
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${sec}`;
+  return `${m}:${sec}`;
+}

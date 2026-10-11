@@ -31,3 +31,36 @@
     background: #444444;
   }
 }
+
+@layer components {
+  /* Seek bar: flat 3px track, filled to --p, small neutral thumb */
+  .seek {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 14px;
+    background: transparent;
+    cursor: pointer;
+  }
+  .seek:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+  .seek::-webkit-slider-runnable-track {
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(to right, #9ca3af var(--p, 0%), #303030 var(--p, 0%));
+  }
+  .seek::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px;
+    height: 10px;
+    margin-top: -3.5px;
+    border-radius: 50%;
+    background: #e4e4e7;
+    border: none;
+  }
+  .seek:focus-visible::-webkit-slider-thumb {
+    outline: 1px solid #3b82f6;
+    outline-offset: 2px;
+  }
+}
