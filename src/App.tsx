@@ -32,10 +32,13 @@ import {
   resetVideo,
 } from './utils/playback';
 import { DropOverlay } from './components/DropOverlay';
+import { NotificationToast, NotificationItem } from './components/NotificationToast';
 import { SettingsModal } from './components/dialogs/SettingsModal';
 import { DiagnosticsModal } from './components/dialogs/DiagnosticsModal';
 import { ConfirmOverwriteModal } from './components/dialogs/ConfirmOverwriteModal';
 import { AboutModal } from './components/dialogs/AboutModal';
+import { ErrorModal } from './components/dialogs/ErrorModal';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 export const App: React.FC = () => {
   // References
@@ -145,12 +148,43 @@ export const App: React.FC = () => {
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
   const [commandText, setCommandText] = useState<string>('');
 
-  // Modals
+  // Modals & Notifications
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState<boolean>(false);
   const [diagnosticsText, setDiagnosticsText] = useState<string>('');
   const [aboutOpen, setAboutOpen] = useState<boolean>(false);
   const [overwriteModalPath, setOverwriteModalPath] = useState<string | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; text: string } | null>(null);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+
+  const toolsRef = useRef<ToolPaths | null>(null);
+
+  const showNotification = useCallback((item: Omit<NotificationItem, 'id'>) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setNotifications((prev) => [...prev, { ...item, id }]);
+  }, []);
+
+  const dismissNotification = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
+  const ensureTools = useCallback(async (): Promise<ToolPaths | null> => {
+    if (toolsRef.current) return toolsRef.current;
+    try {
+      const found = await invoke<ToolPaths | null>('get_tools', {
+        customFfmpeg: settings.ffmpeg_path || null,
+        customFfprobe: settings.ffprobe_path || null,
+      });
+      if (found) {
+        setTools(found);
+        toolsRef.current = found;
+      }
+      return found;
+    } catch (e) {
+      console.error('Failed to probe tools:', e);
+      return null;
+    }
+  }, [settings.ffmpeg_path, settings.ffprobe_path]);
 
   // Initialize
   useEffect(() => {
@@ -167,6 +201,7 @@ export const App: React.FC = () => {
           customFfprobe: loadedSettings.ffprobe_path || null,
         });
         setTools(foundTools);
+        toolsRef.current = foundTools;
         if (!foundTools) {
           setStatusMessage('FFmpeg not found — configure its location in Tools → Settings.');
         }
@@ -202,7 +237,10 @@ export const App: React.FC = () => {
       unlistenFailed = await listen<string>('ffmpeg-failed', (event) => {
         setIsRunning(false);
         setStatusMessage('Video processing failed.');
-        alert(event.payload);
+        setErrorModal({
+          title: 'Video Processing Failed',
+          text: event.payload,
+        });
       });
     })();
 
@@ -217,8 +255,18 @@ export const App: React.FC = () => {
   // Load Video File
   const loadVideo = useCallback(
     async (filePath: string) => {
-      if (!tools) {
-        alert('FFmpeg or ffprobe is not configured. Please check Tools → Settings.');
+      const resolvedTools = await ensureTools();
+      if (!resolvedTools) {
+        setStatusMessage('FFmpeg not configured — check Tools → Settings.');
+        showNotification({
+          type: 'warning',
+          title: 'FFmpeg or ffprobe is not configured',
+          message: 'Video Cropper needs FFmpeg to probe and process videos. Please set its path in Settings.',
+          action: {
+            label: 'Open Settings',
+            onClick: () => setSettingsOpen(true),
+          },
+        });
         return;
       }
       try {
@@ -228,24 +276,24 @@ export const App: React.FC = () => {
         // Probe metadata
         const metadata = await invoke<VideoMetadata>('probe_video', {
           path: filePath,
-          ffprobeExe: tools.ffprobe,
+          ffprobeExe: resolvedTools.ffprobe,
         });
         setMeta(metadata);
 
         // Extract 1-frame preview
         const dataUrl = await invoke<string>('extract_preview', {
           path: filePath,
-          ffmpegExe: tools.ffmpeg,
+          ffmpegExe: resolvedTools.ffmpeg,
           duration: metadata.duration,
         });
         setPreviewSrc(dataUrl);
 
         // Start the player in the background (native decode, proxy fallback)
-        void setupPlayback(filePath, metadata, tools.ffmpeg);
+        void setupPlayback(filePath, metadata, resolvedTools.ffmpeg);
 
         // Detect encoders
         const detectedEncoders = await invoke<EncoderInfo[]>('get_encoders', {
-          ffmpegExe: tools.ffmpeg,
+          ffmpegExe: resolvedTools.ffmpeg,
         });
         setEncoders(detectedEncoders);
 
@@ -297,16 +345,37 @@ export const App: React.FC = () => {
       } catch (err: any) {
         console.error(err);
         setStatusMessage('Could not open video.');
-        alert(`Could not open video:\n${err}`);
+        showNotification({
+          type: 'error',
+          title: 'Could not open video',
+          message: String(err),
+        });
       }
     },
-    [tools, settings, outputPreset, resetPlayback, setupPlayback]
+    [ensureTools, settings, outputPreset, resetPlayback, setupPlayback, showNotification]
   );
 
   // File Picker
   const handleOpenFileDialog = async () => {
     if (isRunning) {
-      alert('Stop the current encoding before opening another video.');
+      showNotification({
+        type: 'warning',
+        title: 'Encoding in progress',
+        message: 'Please wait for or cancel the current encoding before opening another video.',
+      });
+      return;
+    }
+    const resolvedTools = await ensureTools();
+    if (!resolvedTools) {
+      showNotification({
+        type: 'warning',
+        title: 'FFmpeg or ffprobe is not configured',
+        message: 'Please configure FFmpeg paths in Settings before opening videos.',
+        action: {
+          label: 'Open Settings',
+          onClick: () => setSettingsOpen(true),
+        },
+      });
       return;
     }
     try {
@@ -401,7 +470,11 @@ export const App: React.FC = () => {
       if (err === 'NEEDS_CONFIRM') {
         setOverwriteModalPath(outputPath);
       } else {
-        alert(err);
+        showNotification({
+          type: 'error',
+          title: 'Validation failed',
+          message: String(err),
+        });
         setStatusMessage('Validation failed.');
       }
     }
@@ -469,34 +542,52 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleExit, handleOpenFileDialog, handleStart, isRunning, meta]);
 
-  // Window Drag & Drop
+  // Window Drag & Drop (Full Window)
   useEffect(() => {
-    let unlistenDrop: (() => void) | undefined;
+    let unlistenTauriDrag: (() => void) | undefined;
+
+    // 1. Tauri v2 official window drag-and-drop listener
     (async () => {
-      unlistenDrop = await listen<{ paths: string[] }>('tauri://drag-drop', async (event) => {
-        setIsDraggingFile(false);
-        const paths = event.payload.paths;
-        if (paths && paths.length > 0) {
-          await loadVideo(paths[0]);
-        }
-      });
+      try {
+        unlistenTauriDrag = await getCurrentWindow().onDragDropEvent((event) => {
+          if (event.payload.type === 'enter' || event.payload.type === 'over') {
+            setIsDraggingFile(true);
+          } else if (event.payload.type === 'leave') {
+            setIsDraggingFile(false);
+          } else if (event.payload.type === 'drop') {
+            setIsDraggingFile(false);
+            const paths = event.payload.paths;
+            if (paths && paths.length > 0) {
+              void loadVideo(paths[0]);
+            }
+          }
+        });
+      } catch (e) {
+        console.warn('Tauri onDragDropEvent listener fallback', e);
+      }
     })();
 
+    // 2. HTML5 drag-and-drop events as fallback
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       setIsDraggingFile(true);
     };
+
     const handleDragLeave = (e: DragEvent) => {
-      if (e.relatedTarget === null) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.relatedTarget === null || (e.clientX <= 0 && e.clientY <= 0)) {
         setIsDraggingFile(false);
       }
     };
+
     const handleDrop = async (e: DragEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       setIsDraggingFile(false);
       if (e.dataTransfer && e.dataTransfer.files.length > 0) {
         const file = e.dataTransfer.files[0];
-        // In Tauri webview, File object has .path property
         const localPath = (file as any).path;
         if (localPath) {
           await loadVideo(localPath);
@@ -509,7 +600,7 @@ export const App: React.FC = () => {
     window.addEventListener('drop', handleDrop);
 
     return () => {
-      if (unlistenDrop) unlistenDrop();
+      if (unlistenTauriDrag) unlistenTauriDrag();
       window.removeEventListener('dragover', handleDragOver);
       window.removeEventListener('dragleave', handleDragLeave);
       window.removeEventListener('drop', handleDrop);
@@ -552,7 +643,6 @@ export const App: React.FC = () => {
               onCropChange={handleCropChange}
               onZoomChange={setZoomPercent}
             />
-            <DropOverlay isDragging={isDraggingFile} />
           </div>
 
           <PlayerBar
@@ -642,6 +732,7 @@ export const App: React.FC = () => {
               customFfprobe: fp || null,
             });
             setTools(resolved);
+            toolsRef.current = resolved;
           }}
           onClose={() => setSettingsOpen(false)}
         />
@@ -666,6 +757,24 @@ export const App: React.FC = () => {
       )}
 
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+
+      {/* Error Details Modal */}
+      {errorModal && (
+        <ErrorModal
+          title={errorModal.title}
+          errorText={errorModal.text}
+          onClose={() => setErrorModal(null)}
+        />
+      )}
+
+      {/* Full-UI Drag & Drop Zone Overlay */}
+      <DropOverlay isDragging={isDraggingFile} />
+
+      {/* In-App Floating Notification Toasts */}
+      <NotificationToast
+        notifications={notifications}
+        onDismiss={dismissNotification}
+      />
     </div>
   );
 };
