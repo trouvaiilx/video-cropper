@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 
 interface ProgressPanelProps {
   isRunning: boolean;
+  isCancelling?: boolean;
   statusMessage: string;
   progress: ProgressUpdate | null;
   totalDuration: number;
@@ -16,6 +17,7 @@ interface ProgressPanelProps {
 
 export const ProgressPanel: React.FC<ProgressPanelProps> = ({
   isRunning,
+  isCancelling = false,
   statusMessage,
   progress,
   totalDuration,
@@ -42,7 +44,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
         <div className="flex gap-2">
           <button
             onClick={onStart}
-            disabled={disabled || isRunning}
+            disabled={disabled || isRunning || isCancelling}
             className="flex-1 py-1.5 px-3 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium tracking-tight rounded text-xs transition-colors disabled:opacity-50 disabled:pointer-events-none shadow-sm"
             title="Crop and encode to output file (Ctrl+R)"
           >
@@ -50,11 +52,11 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
           </button>
           <button
             onClick={onCancel}
-            disabled={!isRunning}
+            disabled={!isRunning || isCancelling}
             className="flex-1 py-1.5 px-3 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle text-fg-primary font-medium tracking-tight rounded text-xs transition-colors disabled:opacity-40 disabled:pointer-events-none"
             title="Stop encoding and remove partial output"
           >
-            Cancel
+            {isCancelling ? 'Cancelling…' : 'Cancel'}
           </button>
         </div>
 
@@ -68,7 +70,11 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
 
         {/* Status Text */}
         <div className="text-[11px] text-fg-secondary font-mono tabular-nums leading-relaxed min-w-0">
-          {isRunning && progress ? (
+          {isCancelling ? (
+            <div className="text-amber-400 font-medium animate-pulse">
+              Cancelling… Cleaning up partial output.
+            </div>
+          ) : isRunning && progress ? (
             <div>
               {percent.toFixed(1)}% · {formatClockPair(posSec, totalDuration)}
               <br />

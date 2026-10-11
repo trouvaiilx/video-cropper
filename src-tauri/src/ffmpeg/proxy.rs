@@ -33,6 +33,18 @@ fn proxy_dir() -> PathBuf {
     std::env::temp_dir().join("VideoCropper").join("proxy")
 }
 
+pub fn remove_file_with_retry_sync(path: &Path) {
+    if !path.exists() {
+        return;
+    }
+    for _ in 0..20 {
+        if fs::remove_file(path).is_ok() || !path.exists() {
+            return;
+        }
+        sleep(Duration::from_millis(50));
+    }
+}
+
 /// Stable-per-session cache name derived from path, size and mtime.
 fn proxy_name(input: &Path) -> Result<String, String> {
     let meta = fs::metadata(input).map_err(|e| format!("Cannot read input file: {}", e))?;
@@ -155,14 +167,14 @@ pub fn build_proxy(slot: &ProxySlot, input_path: &str, ffmpeg_exe: &str) -> Resu
         let mut job = slot.lock().map_err(|_| "Proxy state poisoned".to_string())?;
 
         if job.generation != my_generation {
-            let _ = fs::remove_file(&tmp_path);
+            remove_file_with_retry_sync(&tmp_path);
             return Err("Preview preparation was cancelled.".into());
         }
 
         let status = match job.child.as_mut() {
             Some(child) => child.try_wait(),
             None => {
-                let _ = fs::remove_file(&tmp_path);
+                remove_file_with_retry_sync(&tmp_path);
                 return Err("Preview preparation was cancelled.".into());
             }
         };
@@ -177,12 +189,12 @@ pub fn build_proxy(slot: &ProxySlot, input_path: &str, ffmpeg_exe: &str) -> Resu
                         .map_err(|e| format!("Cannot finalize proxy: {}", e))?;
                     return Ok(final_path.to_string_lossy().to_string());
                 }
-                let _ = fs::remove_file(&tmp_path);
+                remove_file_with_retry_sync(&tmp_path);
                 return Err("Could not prepare a playback preview for this file.".into());
             }
             Err(e) => {
                 job.child = None;
-                let _ = fs::remove_file(&tmp_path);
+                remove_file_with_retry_sync(&tmp_path);
                 return Err(format!("Proxy process error: {}", e));
             }
         }

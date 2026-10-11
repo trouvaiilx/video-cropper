@@ -189,6 +189,7 @@ export const App: React.FC = () => {
 
   // Encode state
   const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [isCancelling, setIsCancelling] = useState<boolean>(false);
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
   const [commandText, setCommandText] = useState<string>('');
 
@@ -285,6 +286,7 @@ export const App: React.FC = () => {
         const outPath = event.payload;
         const fileName = outPath.split(/[/\\]/).pop() || outPath;
         setIsRunning(false);
+        setIsCancelling(false);
         setProgress(null);
         setStatusMessage(`Done: ${fileName}`);
 
@@ -332,6 +334,7 @@ export const App: React.FC = () => {
 
       unlistenCancelled = await listen('ffmpeg-cancelled', () => {
         setIsRunning(false);
+        setIsCancelling(false);
         setProgress(null);
         setStatusMessage('Cancelled. Partial output removed.');
         showNotification({
@@ -344,6 +347,7 @@ export const App: React.FC = () => {
       unlistenFailed = await listen<string>('ffmpeg-failed', (event) => {
         const errorDetails = event.payload;
         setIsRunning(false);
+        setIsCancelling(false);
         setProgress(null);
         setStatusMessage('Video processing failed.');
 
@@ -546,7 +550,7 @@ export const App: React.FC = () => {
 
   // File Picker
   const handleOpenFileDialog = async () => {
-    if (isRunning) {
+    if (isRunning || isCancelling) {
       showNotification({
         type: 'warning',
         title: 'Encoding in progress',
@@ -644,6 +648,7 @@ export const App: React.FC = () => {
 
     try {
       setIsRunning(true);
+      setIsCancelling(false);
       setStatusMessage('Starting FFmpeg…');
       setProgress(null);
 
@@ -656,6 +661,7 @@ export const App: React.FC = () => {
       setCommandText(cmd);
     } catch (err: any) {
       setIsRunning(false);
+      setIsCancelling(false);
       if (err === 'NEEDS_CONFIRM') {
         setOverwriteModalPath(outputPath);
       } else {
@@ -672,11 +678,14 @@ export const App: React.FC = () => {
   const handleStart = () => executeStartEncode(false);
 
   const handleCancel = async () => {
+    if (isCancelling) return;
     try {
+      setIsCancelling(true);
       setStatusMessage('Cancelling…');
       await invoke('cancel_encode');
     } catch (e) {
-      console.error(e);
+      console.error('Cancel encode failed:', e);
+      setIsCancelling(false);
     }
   };
 
@@ -718,7 +727,7 @@ export const App: React.FC = () => {
           handleOpenFileDialog();
         } else if (e.key === 'r' || e.key === 'R') {
           e.preventDefault();
-          if (!isRunning && meta) handleStart();
+          if (!isRunning && !isCancelling && meta) handleStart();
         } else if (e.key === '0') {
           e.preventDefault();
           canvasRef.current?.fitView();
@@ -733,7 +742,7 @@ export const App: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleExit, handleOpenFileDialog, handleStart, isRunning, meta]);
+  }, [handleExit, handleOpenFileDialog, handleStart, isRunning, isCancelling, meta]);
 
   // Window Drag & Drop (Full Window)
   useEffect(() => {
@@ -886,7 +895,7 @@ export const App: React.FC = () => {
           <CropControlsPanel
             crop={crop}
             selectedRatio={selectedRatio}
-            disabled={!meta || isRunning}
+            disabled={!meta || isRunning || isCancelling}
             onCropChange={handleCropChange}
             onRatioChange={handleRatioChange}
           />
@@ -900,7 +909,7 @@ export const App: React.FC = () => {
             encoders={encoders}
             selectedEncoder={selectedEncoder}
             outputPath={outputPath}
-            disabled={!meta || isRunning}
+            disabled={!meta || isRunning || isCancelling}
             onPresetChange={handlePresetChange}
             onSizeChange={handleSizeChange}
             onEncoderChange={setSelectedEncoder}
@@ -910,6 +919,7 @@ export const App: React.FC = () => {
 
           <ProgressPanel
             isRunning={isRunning}
+            isCancelling={isCancelling}
             statusMessage={statusMessage}
             progress={progress}
             totalDuration={meta?.duration || 0}
