@@ -264,5 +264,9 @@ pub fn set_settings(settings: AppSettings) -> Result<(), String> {
 
 #[tauri::command]
 pub fn exit_app(app: AppHandle) {
-    app.exit(0);
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.close();
+    } else {
+        app.exit(0);
+    }
 }

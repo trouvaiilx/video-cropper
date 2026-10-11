@@ -40,6 +40,41 @@ import { AboutModal } from './components/dialogs/AboutModal';
 import { ErrorModal } from './components/dialogs/ErrorModal';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
+export const SUPPORTED_VIDEO_EXTENSIONS = [
+  'mp4',
+  'mkv',
+  'mov',
+  'avi',
+  'webm',
+  'm4v',
+  'mpg',
+  'mpeg',
+  'ts',
+  'm2ts',
+  'mts',
+  'wmv',
+  'flv',
+  'ogv',
+  '3gp',
+  'vob',
+  'divx',
+  'f4v',
+] as const;
+
+export function getFileExtension(filePath: string): string {
+  const lastDot = filePath.lastIndexOf('.');
+  const lastSlash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+  if (lastDot === -1 || lastDot < lastSlash) {
+    return '';
+  }
+  return filePath.substring(lastDot + 1).toLowerCase();
+}
+
+export function isSupportedVideoFile(filePath: string): boolean {
+  const ext = getFileExtension(filePath);
+  return (SUPPORTED_VIDEO_EXTENSIONS as readonly string[]).includes(ext);
+}
+
 export const App: React.FC = () => {
   // References
   const canvasRef = useRef<CropCanvasHandle>(null);
@@ -140,7 +175,15 @@ export const App: React.FC = () => {
   // UI / View state
   const [zoomPercent, setZoomPercent] = useState<number>(100);
   const [showThirds, setShowThirds] = useState<boolean>(true);
-  const [isDraggingFile, setIsDraggingFile] = useState<boolean>(false);
+  const [dragState, setDragState] = useState<{
+    isDragging: boolean;
+    isValid: boolean | null;
+    fileName: string;
+  }>({
+    isDragging: false,
+    isValid: null,
+    fileName: '',
+  });
   const [statusMessage, setStatusMessage] = useState<string>('Open a video to begin.');
 
   // Encode state
@@ -255,6 +298,20 @@ export const App: React.FC = () => {
   // Load Video File
   const loadVideo = useCallback(
     async (filePath: string) => {
+      const fileName = filePath.split(/[/\\]/).pop() || filePath;
+      if (!isSupportedVideoFile(filePath)) {
+        const ext = getFileExtension(filePath);
+        setStatusMessage('Unsupported file type.');
+        showNotification({
+          type: 'warning',
+          title: 'Unsupported file type',
+          message: ext
+            ? `"${fileName}" (.${ext}) is not a recognized video file. Supported formats: MP4, MKV, MOV, WebM, AVI, TS, etc.`
+            : `"${fileName}" is not a recognized video file. Supported formats: MP4, MKV, MOV, WebM, AVI, TS, etc.`,
+        });
+        return;
+      }
+
       const resolvedTools = await ensureTools();
       if (!resolvedTools) {
         setStatusMessage('FFmpeg not configured — check Tools → Settings.');
@@ -271,7 +328,7 @@ export const App: React.FC = () => {
       }
       try {
         resetPlayback();
-        setStatusMessage(`Loading ${filePath.split(/[/\\]/).pop()}…`);
+        setStatusMessage(`Loading ${fileName}…`);
 
         // Probe metadata
         const metadata = await invoke<VideoMetadata>('probe_video', {
@@ -340,19 +397,52 @@ export const App: React.FC = () => {
         setSettings(updated);
         await invoke('set_settings', { settings: updated });
 
-        const fname = filePath.split(/[/\\]/).pop() || '';
-        setStatusMessage(`${fname} — ${metadata.display_width} × ${metadata.display_height}`);
+        setStatusMessage(`${fileName} — ${metadata.display_width} × ${metadata.display_height}`);
       } catch (err: any) {
         console.error(err);
-        setStatusMessage('Could not open video.');
-        showNotification({
-          type: 'error',
-          title: 'Could not open video',
-          message: String(err),
-        });
+        const errMsg = String(err);
+        if (errMsg.includes('No video stream found')) {
+          setStatusMessage('No video stream found.');
+          showNotification({
+            type: 'warning',
+            title: 'No video stream found',
+            message: `"${fileName}" does not contain a playable video stream.`,
+          });
+        } else {
+          setStatusMessage('Could not open video.');
+          showNotification({
+            type: 'error',
+            title: 'Could not open video',
+            message: errMsg,
+          });
+        }
       }
     },
     [ensureTools, settings, outputPreset, resetPlayback, setupPlayback, showNotification]
+  );
+
+  // Incoming File Handler for Drops
+  const handleIncomingDroppedFiles = useCallback(
+    (paths: string[]) => {
+      if (paths.length === 0) return;
+      const validPath = paths.find((p) => isSupportedVideoFile(p));
+      if (validPath) {
+        void loadVideo(validPath);
+      } else {
+        const first = paths[0];
+        const fileName = first.split(/[/\\]/).pop() || first;
+        const ext = getFileExtension(first);
+        setStatusMessage('Unsupported file type.');
+        showNotification({
+          type: 'warning',
+          title: 'Unsupported file type',
+          message: ext
+            ? `"${fileName}" (.${ext}) is not a recognized video file. Supported formats: MP4, MKV, MOV, WebM, AVI, TS, etc.`
+            : `"${fileName}" is not a recognized video file. Supported formats: MP4, MKV, MOV, WebM, AVI, TS, etc.`,
+        });
+      }
+    },
+    [loadVideo, showNotification]
   );
 
   // File Picker
@@ -505,10 +595,14 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleExit = useCallback(() => {
-    invoke('exit_app').catch((e) => {
-      console.error('Failed to exit application:', e);
-    });
+  const handleExit = useCallback(async () => {
+    try {
+      await getCurrentWindow().close();
+    } catch {
+      invoke('exit_app').catch((e) => {
+        console.error('Failed to exit application:', e);
+      });
+    }
   }, []);
 
   // Keyboard Shortcuts
@@ -551,14 +645,36 @@ export const App: React.FC = () => {
       try {
         unlistenTauriDrag = await getCurrentWindow().onDragDropEvent((event) => {
           if (event.payload.type === 'enter' || event.payload.type === 'over') {
-            setIsDraggingFile(true);
+            const paths = 'paths' in event.payload ? event.payload.paths : [];
+            if (paths && paths.length > 0) {
+              const hasVideo = paths.some(isSupportedVideoFile);
+              const fname = paths[0].split(/[/\\]/).pop() || '';
+              setDragState({
+                isDragging: true,
+                isValid: hasVideo,
+                fileName: fname,
+              });
+            } else {
+              setDragState((prev) => ({
+                ...prev,
+                isDragging: true,
+              }));
+            }
           } else if (event.payload.type === 'leave') {
-            setIsDraggingFile(false);
+            setDragState({
+              isDragging: false,
+              isValid: null,
+              fileName: '',
+            });
           } else if (event.payload.type === 'drop') {
-            setIsDraggingFile(false);
+            setDragState({
+              isDragging: false,
+              isValid: null,
+              fileName: '',
+            });
             const paths = event.payload.paths;
             if (paths && paths.length > 0) {
-              void loadVideo(paths[0]);
+              handleIncomingDroppedFiles(paths);
             }
           }
         });
@@ -571,26 +687,35 @@ export const App: React.FC = () => {
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setIsDraggingFile(true);
+      setDragState((prev) => (prev.isDragging ? prev : { isDragging: true, isValid: null, fileName: '' }));
     };
 
     const handleDragLeave = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
       if (e.relatedTarget === null || (e.clientX <= 0 && e.clientY <= 0)) {
-        setIsDraggingFile(false);
+        setDragState({
+          isDragging: false,
+          isValid: null,
+          fileName: '',
+        });
       }
     };
 
-    const handleDrop = async (e: DragEvent) => {
+    const handleDrop = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setIsDraggingFile(false);
+      setDragState({
+        isDragging: false,
+        isValid: null,
+        fileName: '',
+      });
       if (e.dataTransfer && e.dataTransfer.files.length > 0) {
-        const file = e.dataTransfer.files[0];
-        const localPath = (file as any).path;
-        if (localPath) {
-          await loadVideo(localPath);
+        const paths = Array.from(e.dataTransfer.files)
+          .map((f: any) => f.path || f.name)
+          .filter(Boolean);
+        if (paths.length > 0) {
+          handleIncomingDroppedFiles(paths);
         }
       }
     };
@@ -605,7 +730,7 @@ export const App: React.FC = () => {
       window.removeEventListener('dragleave', handleDragLeave);
       window.removeEventListener('drop', handleDrop);
     };
-  }, [loadVideo]);
+  }, [handleIncomingDroppedFiles]);
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg-dark text-fg-primary">
@@ -768,7 +893,11 @@ export const App: React.FC = () => {
       )}
 
       {/* Full-UI Drag & Drop Zone Overlay */}
-      <DropOverlay isDragging={isDraggingFile} />
+      <DropOverlay
+        isDragging={dragState.isDragging}
+        isValid={dragState.isValid}
+        fileName={dragState.fileName}
+      />
 
       {/* In-App Floating Notification Toasts */}
       <NotificationToast
