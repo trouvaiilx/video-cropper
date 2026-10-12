@@ -4,6 +4,8 @@
 
 Minimalist, high-performance desktop utility for visually cropping video frames on Windows.
 
+[![bQZeJ.gif](https://s15.gifyu.com/images/bQZeJ.gif)](https://gifyu.com/image/bQZeJ)
+
 Built with **Rust + Tauri v2 + React 19 + TypeScript + FFmpeg**.
 
 > Drag a rectangle over the region you want to **KEEP** — everything else (audio,
