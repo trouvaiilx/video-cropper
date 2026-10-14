@@ -29,6 +29,8 @@ interface ToolbarProps {
   onRotateCcw: () => void;
   onResetRotation: () => void;
   onToggleThirds: () => void;
+  cropView?: boolean;
+  onToggleCropView?: () => void;
   onStartExport?: () => void;
   onOpenSettings: () => void;
   onOpenDiagnostics: () => void;
@@ -41,6 +43,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   showThirds,
   hasVideo,
   userRotation,
+  cropView = false,
   isRunning = false,
   isCancelling = false,
   onOpenVideo,
@@ -51,6 +54,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onRotateCcw,
   onResetRotation,
   onToggleThirds,
+  onToggleCropView,
   onStartExport,
   onOpenSettings,
   onOpenDiagnostics,
@@ -235,16 +239,40 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   setActiveMenu(null);
                   onToggleThirds();
                 }}
-                className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex items-center gap-2 text-fg-primary"
+                className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary"
               >
-                <input
-                  type="checkbox"
-                  checked={showThirds}
-                  onChange={() => {}}
-                  className="rounded bg-bg-input border-border-subtle"
-                />
-                <span className="whitespace-nowrap">Rule-of-thirds grid</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={showThirds}
+                    onChange={() => {}}
+                    className="rounded bg-bg-input border-border-subtle"
+                  />
+                  <span className="whitespace-nowrap">Rule-of-thirds grid</span>
+                </div>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">G</span>
               </button>
+              {onToggleCropView && (
+                <button
+                  onClick={() => {
+                    setActiveMenu(null);
+                    onToggleCropView();
+                  }}
+                  disabled={!hasVideo}
+                  className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={cropView}
+                      onChange={() => {}}
+                      className="rounded bg-bg-input border-border-subtle"
+                    />
+                    <span className="whitespace-nowrap">Crop view</span>
+                  </div>
+                  <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">F</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -329,7 +357,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               ? 'bg-bg-hover text-fg-primary border-border-focus'
               : 'bg-bg-input text-fg-secondary hover:bg-bg-hover'
           }`}
-          title="Toggle Rule-of-Thirds Grid"
+          title="Toggle Rule-of-Thirds Grid (G)"
         >
           <Grid size={14} />
           <span>Grid</span>

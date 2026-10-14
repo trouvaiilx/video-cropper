@@ -783,9 +783,13 @@ export const App: React.FC = () => {
       const target = e.target as HTMLElement | null;
       const isInput =
         target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable);
+        (target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable ||
+          (target.tagName === 'INPUT' &&
+            (target as HTMLInputElement).type !== 'range' &&
+            (target as HTMLInputElement).type !== 'checkbox' &&
+            (target as HTMLInputElement).type !== 'button'));
 
       if (e.ctrlKey && e.shiftKey && (e.key === 'q' || e.key === 'Q')) {
         e.preventDefault();
@@ -822,6 +826,14 @@ export const App: React.FC = () => {
         } else if (e.key === '[') {
           e.preventDefault();
           if (meta) handleRotateCcw();
+        } else if (e.key === 'g' || e.key === 'G') {
+          e.preventDefault();
+          setShowThirds((prev) => !prev);
+        } else if (e.key === 'f' || e.key === 'F') {
+          e.preventDefault();
+          if (meta) {
+            setCropView((prev) => !prev);
+          }
         }
       }
     };
@@ -918,6 +930,7 @@ export const App: React.FC = () => {
       <Toolbar
         zoomPercent={Math.round(zoomPercent * 100)}
         showThirds={showThirds}
+        cropView={cropView}
         hasVideo={!!meta}
         userRotation={userRotation}
         isRunning={isRunning}
@@ -930,6 +943,7 @@ export const App: React.FC = () => {
         onRotateCcw={handleRotateCcw}
         onResetRotation={handleResetRotation}
         onToggleThirds={() => setShowThirds(!showThirds)}
+        onToggleCropView={() => setCropView((v) => !v)}
         onStartExport={meta ? handleStart : undefined}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenDiagnostics={handleOpenDiagnostics}

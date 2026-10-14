@@ -452,7 +452,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
                 ? 'bg-bg-hover text-fg-primary border-border-focus'
                 : 'bg-bg-input text-fg-secondary hover:bg-bg-hover border-border-subtle'
             }`}
-            title="Show only the cropped area, as it will be exported"
+            title="Show only the cropped area, as it will be exported (F)"
           >
             <Crop size={14} />
             <span>Crop view</span>
