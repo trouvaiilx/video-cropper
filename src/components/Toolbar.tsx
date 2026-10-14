@@ -8,6 +8,7 @@ import {
   RotateCcw,
   Play,
   Grid,
+  CircleX,
   Settings,
   Activity,
   HelpCircle,
@@ -215,18 +216,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 <span className="whitespace-nowrap">Rotate 90° Counter-Clockwise</span>
                 <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">Ctrl+[</span>
               </button>
-              {userRotation !== 0 && (
-                <button
-                  onClick={() => {
-                    setActiveMenu(null);
-                    onResetRotation();
-                  }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary"
-                >
-                  <span className="whitespace-nowrap">Reset Rotation</span>
-                  <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">0°</span>
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  setActiveMenu(null);
+                  onResetRotation();
+                }}
+                disabled={!hasVideo || userRotation === 0}
+                className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
+              >
+                <span className="whitespace-nowrap">Reset Rotation</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">
+                  {userRotation !== 0 ? `${userRotation}°` : '0°'}
+                </span>
+              </button>
               <div className="my-1 border-t border-border-subtle/50" />
               <button
                 onClick={() => {
@@ -321,6 +323,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </button>
 
         <button
+          onClick={onToggleThirds}
+          className={`flex items-center gap-1.5 px-2.5 py-1 border border-border-subtle rounded font-medium tracking-tight transition-colors ${
+            showThirds
+              ? 'bg-bg-hover text-fg-primary border-border-focus'
+              : 'bg-bg-input text-fg-secondary hover:bg-bg-hover'
+          }`}
+          title="Toggle Rule-of-Thirds Grid"
+        >
+          <Grid size={14} />
+          <span>Grid</span>
+        </button>
+
+        <button
           onClick={onFit}
           disabled={!hasVideo}
           className="flex items-center gap-1.5 px-2.5 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary font-medium tracking-tight transition-colors disabled:opacity-40"
@@ -360,6 +375,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </button>
 
         <button
+          onClick={onResetRotation}
+          disabled={!hasVideo || userRotation === 0}
+          className={`p-1.5 border rounded transition-colors ${
+            hasVideo && userRotation !== 0
+              ? 'bg-blue-500/15 text-blue-400 border-blue-500/30 hover:bg-blue-500/25'
+              : 'bg-bg-input text-fg-muted/40 border-border-subtle opacity-40 cursor-not-allowed'
+          }`}
+          title={hasVideo && userRotation !== 0 ? `Reset rotation (${userRotation}° -> 0°)` : 'Rotation is 0°'}
+        >
+          <CircleX size={14} />
+        </button>
+
+        <button
           onClick={onRotateCw}
           disabled={!hasVideo}
           className="p-1.5 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary transition-colors disabled:opacity-40"
@@ -368,36 +396,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <RotateCw size={14} className="text-fg-secondary" />
         </button>
 
-        {userRotation !== 0 && (
-          <button
-            onClick={onResetRotation}
-            className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 transition-colors"
-            title="Click to reset rotation to 0°"
-          >
-            {userRotation}°
-          </button>
-        )}
-
         <div className="h-4 w-[1px] bg-border-subtle mx-1" />
 
         <div className="text-[11px] font-mono tabular-nums text-fg-muted min-w-[70px]">
           Zoom: {hasVideo ? `${zoomPercent}%` : '—'}
         </div>
-
-        <div className="h-4 w-[1px] bg-border-subtle mx-1" />
-
-        <button
-          onClick={onToggleThirds}
-          className={`flex items-center gap-1.5 px-2 py-1 border border-border-subtle rounded font-medium tracking-tight transition-colors ${
-            showThirds
-              ? 'bg-bg-hover text-fg-primary border-border-focus'
-              : 'bg-bg-input text-fg-secondary hover:bg-bg-hover'
-          }`}
-          title="Toggle Rule-of-Thirds Grid"
-        >
-          <Grid size={14} />
-          <span>Grid</span>
-        </button>
 
         {onStartExport && (
           <button

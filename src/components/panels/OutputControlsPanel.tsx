@@ -82,7 +82,7 @@ export const OutputControlsPanel: React.FC<OutputControlsPanelProps> = ({
         {/* Pixel Dimensions */}
         <div className="flex items-center gap-2">
           <label className="text-fg-secondary text-[11px] w-14 shrink-0">Pixels:</label>
-          <div className="flex items-center gap-1.5 flex-1">
+          <div className="flex items-center justify-center gap-2 flex-1">
             <input
               type="number"
               min={2}
@@ -90,7 +90,7 @@ export const OutputControlsPanel: React.FC<OutputControlsPanelProps> = ({
               value={outputW}
               onChange={(e) => handleWidthChange(parseInt(e.target.value) || 2)}
               disabled={disabled}
-              className="w-20 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="w-20 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums text-center focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
             <span className="text-fg-muted">×</span>
             <input
@@ -100,7 +100,7 @@ export const OutputControlsPanel: React.FC<OutputControlsPanelProps> = ({
               value={outputH}
               onChange={(e) => handleHeightChange(parseInt(e.target.value) || 2)}
               disabled={disabled}
-              className="w-20 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="w-20 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums text-center focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
           </div>
         </div>

@@ -6,7 +6,7 @@ import {
   clampCrop,
   applyAspectRatio,
 } from '../../utils/coordinates';
-import { RotateCcw, RotateCw } from 'lucide-react';
+import { RotateCcw, RotateCw, CircleX } from 'lucide-react';
 
 interface CropControlsPanelProps {
   crop: CropConfig;
@@ -83,9 +83,9 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
 
       <div className="space-y-2.5">
         {/* Rotation Row */}
-        <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-border-subtle/50">
+        <div className="flex items-center gap-2 pb-1.5 border-b border-border-subtle/50">
           <span className="text-fg-secondary text-[11px] w-14 shrink-0">Rotate:</span>
-          <div className="flex items-center gap-1.5 flex-1 justify-end">
+          <div className="flex items-center justify-center gap-1.5 flex-1">
             <button
               type="button"
               onClick={onRotateCcw}
@@ -98,6 +98,19 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
             </button>
             <button
               type="button"
+              onClick={onResetRotation}
+              disabled={disabled || userRotation === 0}
+              className={`p-1 border rounded transition-colors ${
+                userRotation !== 0 && !disabled
+                  ? 'bg-blue-500/15 text-blue-400 border-blue-500/30 hover:bg-blue-500/25'
+                  : 'bg-bg-input text-fg-muted/40 border-border-subtle opacity-40 cursor-not-allowed'
+              }`}
+              title={userRotation !== 0 ? `Reset rotation (${userRotation}° -> 0°)` : 'Rotation is 0°'}
+            >
+              <CircleX size={13} />
+            </button>
+            <button
+              type="button"
               onClick={onRotateCw}
               disabled={disabled}
               className="flex items-center gap-1 px-2 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-[11px] font-medium transition-colors disabled:opacity-40"
@@ -106,17 +119,6 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
               <RotateCw size={12} className="text-fg-secondary" />
               <span>90° Right</span>
             </button>
-            {userRotation !== 0 && (
-              <button
-                type="button"
-                onClick={onResetRotation}
-                disabled={disabled}
-                className="px-1.5 py-1 text-[10px] font-mono font-medium rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 transition-colors disabled:opacity-40"
-                title="Click to reset rotation to 0°"
-              >
-                {userRotation}°
-              </button>
-            )}
           </div>
         </div>
 
@@ -157,8 +159,8 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
 
         {/* Spinboxes Form */}
         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border-subtle/50">
-          <div className="flex items-center gap-1.5">
-            <span className="text-fg-secondary text-[11px] w-11 shrink-0">X:</span>
+          <div className="flex items-center gap-2">
+            <span className="text-fg-secondary text-[11px] w-14 shrink-0">X:</span>
             <input
               type="number"
               min={0}
@@ -170,8 +172,8 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
             />
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-fg-secondary text-[11px] w-11 shrink-0">Y:</span>
+          <div className="flex items-center gap-2">
+            <span className="text-fg-secondary text-[11px] w-14 shrink-0">Y:</span>
             <input
               type="number"
               min={0}
@@ -183,8 +185,8 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
             />
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-fg-secondary text-[11px] w-11 shrink-0">Width:</span>
+          <div className="flex items-center gap-2">
+            <span className="text-fg-secondary text-[11px] w-14 shrink-0">Width:</span>
             <input
               type="number"
               min={2}
@@ -196,8 +198,8 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
             />
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-fg-secondary text-[11px] w-11 shrink-0">Height:</span>
+          <div className="flex items-center gap-2">
+            <span className="text-fg-secondary text-[11px] w-14 shrink-0">Height:</span>
             <input
               type="number"
               min={2}
