@@ -341,28 +341,6 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
         <StepForward size={14} className="text-fg-secondary" />
       </button>
 
-      <span className="font-mono tabular-nums text-[11px] text-fg-secondary min-w-[96px] text-center tracking-tight">
-        {formatPlayerTime(time)} / {formatPlayerTime(total)}
-      </span>
-
-      <input
-        type="range"
-        className="seek flex-1 min-w-0"
-        min={0}
-        max={total > 0 ? total : 1}
-        step={frameDt}
-        value={Math.min(time, total > 0 ? total : 1)}
-        disabled={!ready || total <= 0}
-        style={{ ['--p' as string]: `${pct}%` }}
-        onPointerDown={handleSeekPointerDown}
-        onChange={handleSeekChange}
-        onPointerUp={handleSeekPointerUp}
-        onPointerCancel={handleSeekPointerUp}
-        title="Seek"
-      />
-
-      {hint && <span className="text-[11px] text-fg-muted shrink-0">{hint}</span>}
-
       {/* Audio controls */}
       <div className="flex items-center gap-1.5 shrink-0">
         <button
@@ -404,6 +382,28 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           />
         )}
       </div>
+
+      <span className="font-mono tabular-nums text-[11px] text-fg-secondary min-w-[96px] text-center tracking-tight">
+        {formatPlayerTime(time)} / {formatPlayerTime(total)}
+      </span>
+
+      <input
+        type="range"
+        className="seek flex-1 min-w-0"
+        min={0}
+        max={total > 0 ? total : 1}
+        step={frameDt}
+        value={Math.min(time, total > 0 ? total : 1)}
+        disabled={!ready || total <= 0}
+        style={{ ['--p' as string]: `${pct}%` }}
+        onPointerDown={handleSeekPointerDown}
+        onChange={handleSeekChange}
+        onPointerUp={handleSeekPointerUp}
+        onPointerCancel={handleSeekPointerUp}
+        title="Seek"
+      />
+
+      {hint && <span className="text-[11px] text-fg-muted shrink-0">{hint}</span>}
 
       <button
         onClick={onToggleCropView}
