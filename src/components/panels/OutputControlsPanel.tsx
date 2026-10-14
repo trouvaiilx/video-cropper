@@ -90,7 +90,7 @@ export const OutputControlsPanel: React.FC<OutputControlsPanelProps> = ({
               value={outputW}
               onChange={(e) => handleWidthChange(parseInt(e.target.value) || 2)}
               disabled={disabled}
-              className="flex-1 min-w-0 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums text-center focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="flex-1 min-w-0 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
             <span className="text-fg-muted shrink-0">×</span>
             <input
@@ -100,7 +100,7 @@ export const OutputControlsPanel: React.FC<OutputControlsPanelProps> = ({
               value={outputH}
               onChange={(e) => handleHeightChange(parseInt(e.target.value) || 2)}
               disabled={disabled}
-              className="flex-1 min-w-0 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums text-center focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="flex-1 min-w-0 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
           </div>
         </div>
