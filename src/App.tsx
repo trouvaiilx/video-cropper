@@ -123,6 +123,7 @@ export const App: React.FC = () => {
         const proxyPath = await invoke<string>('build_playback_proxy', {
           path: filePath,
           ffmpegExe,
+          hasAudio: metadata.has_audio,
         });
         if (stale()) return;
 
@@ -965,6 +966,7 @@ export const App: React.FC = () => {
             fps={meta?.fps || 30}
             cropView={cropView}
             hasVideo={!!meta}
+            hasAudio={!!meta?.has_audio}
             shortcutsEnabled={!settingsOpen && !diagnosticsOpen && !aboutOpen && !overwriteModalPath}
             onToggleCropView={() => setCropView((v) => !v)}
           />
@@ -972,7 +974,6 @@ export const App: React.FC = () => {
           {/* Decode surface for the player; frames are painted onto the canvas, never shown directly. */}
           <video
             ref={videoRef}
-            muted
             loop
             playsInline
             preload="auto"

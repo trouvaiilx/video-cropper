@@ -19,6 +19,7 @@ export function previewSeekTime(duration: number): number {
 /** Fully release the decoder/file handle held by the shared <video>. */
 export function resetVideo(video: HTMLVideoElement): void {
   video.pause();
+  video.muted = true;
   video.removeAttribute('src');
   video.load();
 }
@@ -39,6 +40,7 @@ export function attachSource(
 ): Promise<boolean> {
   return new Promise((resolve) => {
     let settled = false;
+    video.muted = true;
 
     const cleanup = () => {
       clearTimeout(timer);
