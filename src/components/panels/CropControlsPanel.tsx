@@ -6,21 +6,30 @@ import {
   clampCrop,
   applyAspectRatio,
 } from '../../utils/coordinates';
+import { RotateCcw, RotateCw } from 'lucide-react';
 
 interface CropControlsPanelProps {
   crop: CropConfig;
   selectedRatio: AspectRatio;
   disabled: boolean;
+  userRotation?: number;
   onCropChange: (crop: CropConfig) => void;
   onRatioChange: (ratio: AspectRatio) => void;
+  onRotateCw?: () => void;
+  onRotateCcw?: () => void;
+  onResetRotation?: () => void;
 }
 
 export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
   crop,
   selectedRatio,
   disabled,
+  userRotation = 0,
   onCropChange,
   onRatioChange,
+  onRotateCw,
+  onRotateCcw,
+  onResetRotation,
 }) => {
   const [isCustomRatio, setIsCustomRatio] = useState<boolean>(false);
   const [customRatioText, setCustomRatioText] = useState<string>('');
@@ -73,6 +82,44 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
       </div>
 
       <div className="space-y-2.5">
+        {/* Rotation Row */}
+        <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-border-subtle/50">
+          <span className="text-fg-secondary text-[11px] w-14 shrink-0">Rotate:</span>
+          <div className="flex items-center gap-1.5 flex-1 justify-end">
+            <button
+              type="button"
+              onClick={onRotateCcw}
+              disabled={disabled}
+              className="flex items-center gap-1 px-2 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-[11px] font-medium transition-colors disabled:opacity-40"
+              title="Rotate 90° Counter-Clockwise (Ctrl+[)"
+            >
+              <RotateCcw size={12} className="text-fg-secondary" />
+              <span>90° Left</span>
+            </button>
+            <button
+              type="button"
+              onClick={onRotateCw}
+              disabled={disabled}
+              className="flex items-center gap-1 px-2 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-[11px] font-medium transition-colors disabled:opacity-40"
+              title="Rotate 90° Clockwise (Ctrl+])"
+            >
+              <RotateCw size={12} className="text-fg-secondary" />
+              <span>90° Right</span>
+            </button>
+            {userRotation !== 0 && (
+              <button
+                type="button"
+                onClick={onResetRotation}
+                disabled={disabled}
+                className="px-1.5 py-1 text-[10px] font-mono font-medium rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 transition-colors disabled:opacity-40"
+                title="Click to reset rotation to 0°"
+              >
+                {userRotation}°
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Ratio Row */}
         <div>
           <div className="flex items-center gap-2 mb-1.5">
@@ -171,6 +218,7 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
             <div>
               <div>Crop: {crop.width} × {crop.height}</div>
               <div>Position: X {crop.x}, Y {crop.y}</div>
+              {userRotation !== 0 && <div>Rotation: {userRotation}°</div>}
             </div>
           )}
         </div>

@@ -50,6 +50,7 @@ export interface ProcessingJob {
   has_audio: boolean;
   duration: number;
   rotation: number;
+  user_rotation?: number;
   state?: JobState;
 }
 

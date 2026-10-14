@@ -4,6 +4,9 @@ import {
   Maximize2,
   ZoomIn,
   ZoomOut,
+  RotateCw,
+  RotateCcw,
+  Play,
   Grid,
   Settings,
   Activity,
@@ -14,11 +17,18 @@ interface ToolbarProps {
   zoomPercent: number;
   showThirds: boolean;
   hasVideo: boolean;
+  userRotation: number;
+  isRunning?: boolean;
+  isCancelling?: boolean;
   onOpenVideo: () => void;
   onFit: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  onRotateCw: () => void;
+  onRotateCcw: () => void;
+  onResetRotation: () => void;
   onToggleThirds: () => void;
+  onStartExport?: () => void;
   onOpenSettings: () => void;
   onOpenDiagnostics: () => void;
   onOpenAbout: () => void;
@@ -29,11 +39,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   zoomPercent,
   showThirds,
   hasVideo,
+  userRotation,
+  isRunning = false,
+  isCancelling = false,
   onOpenVideo,
   onFit,
   onZoomIn,
   onZoomOut,
+  onRotateCw,
+  onRotateCcw,
+  onResetRotation,
   onToggleThirds,
+  onStartExport,
   onOpenSettings,
   onOpenDiagnostics,
   onOpenAbout,
@@ -81,6 +98,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 <span>Open Video…</span>
                 <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+O</span>
               </button>
+              {onStartExport && (
+                <button
+                  onClick={() => {
+                    setActiveMenu(null);
+                    onStartExport();
+                  }}
+                  disabled={!hasVideo || isRunning || isCancelling}
+                  className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
+                >
+                  <span>Export Video…</span>
+                  <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+R</span>
+                </button>
+              )}
               <div className="my-1 border-t border-border-subtle/50" />
               <button
                 onClick={() => {
@@ -107,7 +137,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             View
           </button>
           {activeMenu === 'view' && (
-            <div className="absolute top-full left-0 mt-0.5 w-52 bg-bg-panel border border-border-subtle rounded shadow-lg py-1 z-50 text-xs">
+            <div className="absolute top-full left-0 mt-0.5 w-56 bg-bg-panel border border-border-subtle rounded shadow-lg py-1 z-50 text-xs">
               <button
                 onClick={() => {
                   setActiveMenu(null);
@@ -141,6 +171,41 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 <span>Zoom Out</span>
                 <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+-</span>
               </button>
+              <div className="my-1 border-t border-border-subtle/50" />
+              <button
+                onClick={() => {
+                  setActiveMenu(null);
+                  onRotateCw();
+                }}
+                disabled={!hasVideo}
+                className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
+              >
+                <span>Rotate 90° Clockwise</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+]</span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveMenu(null);
+                  onRotateCcw();
+                }}
+                disabled={!hasVideo}
+                className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
+              >
+                <span>Rotate 90° Counter-Clockwise</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+[</span>
+              </button>
+              {userRotation !== 0 && (
+                <button
+                  onClick={() => {
+                    setActiveMenu(null);
+                    onResetRotation();
+                  }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary"
+                >
+                  <span>Reset Rotation</span>
+                  <span className="text-[10px] text-fg-muted font-mono tracking-tight">0°</span>
+                </button>
+              )}
               <div className="my-1 border-t border-border-subtle/50" />
               <button
                 onClick={() => {
@@ -262,6 +327,36 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
         <div className="h-4 w-[1px] bg-border-subtle mx-1" />
 
+        <button
+          onClick={onRotateCcw}
+          disabled={!hasVideo}
+          className="p-1.5 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary transition-colors disabled:opacity-40"
+          title="Rotate 90° Counter-Clockwise (Ctrl+[)"
+        >
+          <RotateCcw size={14} className="text-fg-secondary" />
+        </button>
+
+        <button
+          onClick={onRotateCw}
+          disabled={!hasVideo}
+          className="p-1.5 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary transition-colors disabled:opacity-40"
+          title="Rotate 90° Clockwise (Ctrl+])"
+        >
+          <RotateCw size={14} className="text-fg-secondary" />
+        </button>
+
+        {userRotation !== 0 && (
+          <button
+            onClick={onResetRotation}
+            className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 transition-colors"
+            title="Click to reset rotation to 0°"
+          >
+            {userRotation}°
+          </button>
+        )}
+
+        <div className="h-4 w-[1px] bg-border-subtle mx-1" />
+
         <div className="text-[11px] font-mono tabular-nums text-fg-muted min-w-[70px]">
           Zoom: {hasVideo ? `${zoomPercent}%` : '—'}
         </div>
@@ -280,6 +375,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <Grid size={14} />
           <span>Grid</span>
         </button>
+
+        {onStartExport && (
+          <button
+            onClick={onStartExport}
+            disabled={!hasVideo || isRunning || isCancelling}
+            className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded font-medium tracking-tight transition-colors disabled:opacity-40 shadow-sm ml-1.5"
+            title="Start Export (Ctrl+R)"
+          >
+            <Play size={11} fill="currentColor" />
+            <span>Export</span>
+          </button>
+        )}
 
         <div className="flex-1" />
 

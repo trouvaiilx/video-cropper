@@ -5,13 +5,23 @@ fn even(v: i32) -> i32 {
 }
 
 pub fn build_video_filter(job: &ProcessingJob) -> String {
+    let mut parts = Vec::new();
+
+    let rot = ((job.user_rotation % 360) + 360) % 360;
+    match rot {
+        90 => parts.push("transpose=1".to_string()),
+        180 => parts.push("hflip,vflip".to_string()),
+        270 => parts.push("transpose=2".to_string()),
+        _ => {}
+    }
+
     let c = &job.crop;
     let x = even(c.x.max(0));
     let y = even(c.y.max(0));
     let w = even(c.width.max(2));
     let h = even(c.height.max(2));
 
-    let mut parts = vec![format!("crop={}:{}:{}:{}", w, h, x, y)];
+    parts.push(format!("crop={}:{}:{}:{}", w, h, x, y));
     if job.needs_scale() {
         let ow = even(job.output_width.max(2));
         let oh = even(job.output_height.max(2));
@@ -83,7 +93,7 @@ pub fn build_ffmpeg_args(
 
     args.extend(vec!["-map_metadata".into(), "0".into()]);
 
-    if job.rotation != 0 {
+    if job.rotation != 0 || job.user_rotation != 0 {
         args.extend(vec!["-metadata:s:v:0".into(), "rotate=0".into()]);
     }
 
@@ -134,6 +144,7 @@ mod tests {
             has_audio: true,
             duration: 60.0,
             rotation: 0,
+            user_rotation: 0,
             state: Default::default(),
         }
     }
@@ -154,6 +165,29 @@ mod tests {
         let j = make_test_job(540, 960);
         let vf = build_video_filter(&j);
         assert_eq!(vf, "crop=1080:1920:420:0,scale=540:960:flags=lanczos");
+    }
+
+    #[test]
+    fn test_user_rotation_filters() {
+        let mut j = make_test_job(1080, 1920);
+        j.user_rotation = 90;
+        assert_eq!(build_video_filter(&j), "transpose=1,crop=1080:1920:420:0");
+        let args90 = build_ffmpeg_args(&j, "ffmpeg", false);
+        assert!(args90.contains(&"rotate=0".to_string()));
+
+        j.user_rotation = 180;
+        assert_eq!(build_video_filter(&j), "hflip,vflip,crop=1080:1920:420:0");
+
+        j.user_rotation = 270;
+        assert_eq!(build_video_filter(&j), "transpose=2,crop=1080:1920:420:0");
+
+        // With scale
+        j.output_width = 540;
+        j.output_height = 960;
+        assert_eq!(
+            build_video_filter(&j),
+            "transpose=2,crop=1080:1920:420:0,scale=540:960:flags=lanczos"
+        );
     }
 
     #[test]
