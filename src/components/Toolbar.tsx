@@ -107,7 +107,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             File
           </button>
           {activeMenu === 'file' && (
-            <div className="absolute top-full left-0 mt-0.5 w-48 bg-bg-panel border border-border-subtle rounded shadow-lg py-1 z-50 text-xs">
+            <div className="absolute top-full left-0 mt-0.5 w-52 min-w-[210px] bg-bg-panel border border-border-subtle rounded shadow-lg py-1 z-50 text-xs">
               <button
                 onClick={() => {
                   setActiveMenu(null);
@@ -115,8 +115,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 }}
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary"
               >
-                <span>Open Video…</span>
-                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+O</span>
+                <span className="whitespace-nowrap">Open Video…</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-3">Ctrl+O</span>
               </button>
               {onStartExport && (
                 <button
@@ -127,8 +127,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   disabled={!hasVideo || isRunning || isCancelling}
                   className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
                 >
-                  <span>Export Video…</span>
-                  <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+R</span>
+                  <span className="whitespace-nowrap">Export Video…</span>
+                  <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-3">Ctrl+R</span>
                 </button>
               )}
               <div className="my-1 border-t border-border-subtle/50" />
@@ -139,8 +139,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 }}
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary"
               >
-                <span>Exit</span>
-                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+Shift+Q</span>
+                <span className="whitespace-nowrap">Exit</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-3">Ctrl+Shift+Q</span>
               </button>
             </div>
           )}
@@ -158,7 +158,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             View
           </button>
           {activeMenu === 'view' && (
-            <div className="absolute top-full left-0 mt-0.5 w-56 bg-bg-panel border border-border-subtle rounded shadow-lg py-1 z-50 text-xs">
+            <div className="absolute top-full left-0 mt-0.5 w-68 min-w-[275px] bg-bg-panel border border-border-subtle rounded shadow-lg py-1 z-50 text-xs">
               <button
                 onClick={() => {
                   setActiveMenu(null);
@@ -167,8 +167,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={!hasVideo}
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
               >
-                <span>Fit</span>
-                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+0</span>
+                <span className="whitespace-nowrap">Fit</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">Ctrl+0</span>
               </button>
               <button
                 onClick={() => {
@@ -178,8 +178,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={!hasVideo}
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
               >
-                <span>Zoom In</span>
-                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+=</span>
+                <span className="whitespace-nowrap">Zoom In</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">Ctrl+=</span>
               </button>
               <button
                 onClick={() => {
@@ -189,8 +189,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={!hasVideo}
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
               >
-                <span>Zoom Out</span>
-                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+-</span>
+                <span className="whitespace-nowrap">Zoom Out</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">Ctrl+-</span>
               </button>
               <div className="my-1 border-t border-border-subtle/50" />
               <button
@@ -201,8 +201,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={!hasVideo}
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
               >
-                <span>Rotate 90° Clockwise</span>
-                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+]</span>
+                <span className="whitespace-nowrap">Rotate 90° Clockwise</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">Ctrl+]</span>
               </button>
               <button
                 onClick={() => {
@@ -212,8 +212,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={!hasVideo}
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
               >
-                <span>Rotate 90° Counter-Clockwise</span>
-                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+[</span>
+                <span className="whitespace-nowrap">Rotate 90° Counter-Clockwise</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">Ctrl+[</span>
               </button>
               {userRotation !== 0 && (
                 <button
@@ -223,8 +223,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   }}
                   className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary"
                 >
-                  <span>Reset Rotation</span>
-                  <span className="text-[10px] text-fg-muted font-mono tracking-tight">0°</span>
+                  <span className="whitespace-nowrap">Reset Rotation</span>
+                  <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">0°</span>
                 </button>
               )}
               <div className="my-1 border-t border-border-subtle/50" />
@@ -241,7 +241,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   onChange={() => {}}
                   className="rounded bg-bg-input border-border-subtle"
                 />
-                <span>Rule-of-thirds grid</span>
+                <span className="whitespace-nowrap">Rule-of-thirds grid</span>
               </button>
             </div>
           )}
