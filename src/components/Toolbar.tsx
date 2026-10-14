@@ -65,9 +65,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         setActiveMenu(null);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActiveMenu(null);
+      }
+    };
     window.addEventListener('mousedown', handleClickOutside);
-    return () => window.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
+
+  const handleMenuClick = (menuName: string) => {
+    setActiveMenu((prev) => (prev === menuName ? null : menuName));
+  };
+
+  const handleMenuMouseEnter = (menuName: string) => {
+    if (activeMenu !== null) {
+      setActiveMenu(menuName);
+    }
+  };
 
   return (
     <div className="flex flex-col border-b border-border-subtle bg-bg-panel select-none">
@@ -79,7 +98,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         {/* File Menu */}
         <div className="relative">
           <button
-            onClick={() => setActiveMenu(activeMenu === 'file' ? null : 'file')}
+            onClick={() => handleMenuClick('file')}
+            onMouseEnter={() => handleMenuMouseEnter('file')}
             className={`px-2 py-0.5 rounded hover:bg-bg-hover text-fg-primary ${
               activeMenu === 'file' ? 'bg-bg-hover' : ''
             }`}
@@ -129,7 +149,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         {/* View Menu */}
         <div className="relative">
           <button
-            onClick={() => setActiveMenu(activeMenu === 'view' ? null : 'view')}
+            onClick={() => handleMenuClick('view')}
+            onMouseEnter={() => handleMenuMouseEnter('view')}
             className={`px-2 py-0.5 rounded hover:bg-bg-hover text-fg-primary ${
               activeMenu === 'view' ? 'bg-bg-hover' : ''
             }`}
@@ -229,7 +250,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         {/* Tools Menu */}
         <div className="relative">
           <button
-            onClick={() => setActiveMenu(activeMenu === 'tools' ? null : 'tools')}
+            onClick={() => handleMenuClick('tools')}
+            onMouseEnter={() => handleMenuMouseEnter('tools')}
             className={`px-2 py-0.5 rounded hover:bg-bg-hover text-fg-primary ${
               activeMenu === 'tools' ? 'bg-bg-hover' : ''
             }`}
@@ -263,7 +285,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         {/* Help Menu */}
         <div className="relative">
           <button
-            onClick={() => setActiveMenu(activeMenu === 'help' ? null : 'help')}
+            onClick={() => handleMenuClick('help')}
+            onMouseEnter={() => handleMenuMouseEnter('help')}
             className={`px-2 py-0.5 rounded hover:bg-bg-hover text-fg-primary ${
               activeMenu === 'help' ? 'bg-bg-hover' : ''
             }`}
