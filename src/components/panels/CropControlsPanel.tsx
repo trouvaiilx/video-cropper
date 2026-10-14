@@ -85,12 +85,12 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
         {/* Rotation Row */}
         <div className="flex items-center gap-2 pb-1.5 border-b border-border-subtle/50">
           <span className="text-fg-secondary text-[11px] w-14 shrink-0">Rotate:</span>
-          <div className="flex items-center justify-center gap-1.5 flex-1">
+          <div className="flex items-center gap-1.5 flex-1">
             <button
               type="button"
               onClick={onRotateCcw}
               disabled={disabled}
-              className="flex items-center gap-1 px-2 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-[11px] font-medium transition-colors disabled:opacity-40"
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-[11px] font-medium transition-colors disabled:opacity-40"
               title="Rotate 90° Counter-Clockwise (Ctrl+[)"
             >
               <RotateCcw size={12} className="text-fg-secondary" />
@@ -98,26 +98,26 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
             </button>
             <button
               type="button"
-              onClick={onResetRotation}
-              disabled={disabled || userRotation === 0}
-              className={`p-1 border rounded transition-colors ${
-                userRotation !== 0 && !disabled
-                  ? 'bg-blue-500/15 text-blue-400 border-blue-500/30 hover:bg-blue-500/25'
-                  : 'bg-bg-input text-fg-muted/40 border-border-subtle opacity-40 cursor-not-allowed'
-              }`}
-              title={userRotation !== 0 ? `Reset rotation (${userRotation}° -> 0°)` : 'Rotation is 0°'}
-            >
-              <CircleX size={13} />
-            </button>
-            <button
-              type="button"
               onClick={onRotateCw}
               disabled={disabled}
-              className="flex items-center gap-1 px-2 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-[11px] font-medium transition-colors disabled:opacity-40"
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-[11px] font-medium transition-colors disabled:opacity-40"
               title="Rotate 90° Clockwise (Ctrl+])"
             >
               <RotateCw size={12} className="text-fg-secondary" />
               <span>90° Right</span>
+            </button>
+            <button
+              type="button"
+              onClick={onResetRotation}
+              disabled={disabled || userRotation === 0}
+              className={`p-1.5 shrink-0 flex items-center justify-center border border-border-subtle rounded transition-colors ${
+                userRotation !== 0 && !disabled
+                  ? 'bg-blue-500/15 text-blue-400 border-blue-500/30 hover:bg-blue-500/25'
+                  : 'bg-bg-input text-fg-muted/40 opacity-40 cursor-not-allowed'
+              }`}
+              title={userRotation !== 0 ? `Reset rotation (${userRotation}° -> 0°)` : 'Rotation is 0°'}
+            >
+              <CircleX size={13} />
             </button>
           </div>
         </div>
