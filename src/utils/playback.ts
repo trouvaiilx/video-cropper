@@ -10,10 +10,9 @@ export interface PlaybackState {
 
 export const NO_PLAYBACK: PlaybackState = { status: 'none', kind: null };
 
-/** Same frame the still preview was extracted from (mirrors `preview_seek_time` in Rust). */
-export function previewSeekTime(duration: number): number {
-  if (!(duration > 0)) return 1.0;
-  return Math.min(Math.max(duration * 0.1, 0.5), 10.0);
+/** Same frame the still preview was extracted from (mirrors `preview_seek_time` in Rust: frame 0). */
+export function previewSeekTime(_duration: number): number {
+  return 0.0;
 }
 
 /** Fully release the decoder/file handle held by the shared <video>. */
@@ -72,6 +71,7 @@ export function attachSource(
         video.addEventListener('seeked', onSeeked, { once: true });
         video.currentTime = target;
       } else {
+        video.currentTime = 0;
         finish(true);
       }
     };
