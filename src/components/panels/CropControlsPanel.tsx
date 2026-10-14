@@ -157,8 +157,8 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
 
         {/* Spinboxes Form */}
         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border-subtle/50">
-          <div className="flex items-center gap-2">
-            <span className="text-fg-secondary text-[11px] w-10">X:</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-fg-secondary text-[11px] w-11 shrink-0">X:</span>
             <input
               type="number"
               min={0}
@@ -166,12 +166,12 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
               value={crop.x}
               onChange={(e) => handleSpinChange('x', parseInt(e.target.value) || 0)}
               disabled={disabled}
-              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="w-full min-w-0 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-fg-secondary text-[11px] w-10">Y:</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-fg-secondary text-[11px] w-11 shrink-0">Y:</span>
             <input
               type="number"
               min={0}
@@ -179,12 +179,12 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
               value={crop.y}
               onChange={(e) => handleSpinChange('y', parseInt(e.target.value) || 0)}
               disabled={disabled}
-              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="w-full min-w-0 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-fg-secondary text-[11px] w-10">Width:</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-fg-secondary text-[11px] w-11 shrink-0">Width:</span>
             <input
               type="number"
               min={2}
@@ -192,12 +192,12 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
               value={crop.width}
               onChange={(e) => handleSpinChange('width', parseInt(e.target.value) || 2)}
               disabled={disabled}
-              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="w-full min-w-0 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-fg-secondary text-[11px] w-10">Height:</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-fg-secondary text-[11px] w-11 shrink-0">Height:</span>
             <input
               type="number"
               min={2}
@@ -205,22 +205,9 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
               value={crop.height}
               onChange={(e) => handleSpinChange('height', parseInt(e.target.value) || 2)}
               disabled={disabled}
-              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="w-full min-w-0 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
           </div>
-        </div>
-
-        {/* Readout info */}
-        <div className="text-[11px] text-fg-secondary font-mono tabular-nums pt-1 leading-relaxed">
-          {disabled ? (
-            <span className="text-fg-muted font-normal">No video loaded.</span>
-          ) : (
-            <div>
-              <div>Crop: {crop.width} × {crop.height}</div>
-              <div>Position: X {crop.x}, Y {crop.y}</div>
-              {userRotation !== 0 && <div>Rotation: {userRotation}°</div>}
-            </div>
-          )}
         </div>
       </div>
     </div>
