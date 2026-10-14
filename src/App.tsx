@@ -996,49 +996,55 @@ export const App: React.FC = () => {
         </div>
 
         {/* Right: Controls & Info Sidebar */}
-        <div className="w-[340px] shrink-0 border-l border-border-subtle bg-bg-panel overflow-y-auto overflow-x-hidden p-2.5 space-y-2.5">
-          <SourceMetadataPanel meta={meta} userRotation={userRotation} />
+        <div className="w-[340px] shrink-0 border-l border-border-subtle bg-bg-panel flex flex-col h-full overflow-hidden">
+          {/* Scrollable Upper Controls Area */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-2.5 space-y-2.5">
+            <SourceMetadataPanel meta={meta} userRotation={userRotation} />
 
-          <CropControlsPanel
-            crop={crop}
-            selectedRatio={selectedRatio}
-            disabled={!meta || isRunning || isCancelling}
-            userRotation={userRotation}
-            onCropChange={handleCropChange}
-            onRatioChange={handleRatioChange}
-            onRotateCw={handleRotateCw}
-            onRotateCcw={handleRotateCcw}
-            onResetRotation={handleResetRotation}
-          />
+            <CropControlsPanel
+              crop={crop}
+              selectedRatio={selectedRatio}
+              disabled={!meta || isRunning || isCancelling}
+              userRotation={userRotation}
+              onCropChange={handleCropChange}
+              onRatioChange={handleRatioChange}
+              onRotateCw={handleRotateCw}
+              onRotateCcw={handleRotateCcw}
+              onResetRotation={handleResetRotation}
+            />
 
-          <OutputControlsPanel
-            preset={outputPreset}
-            outputW={outputW}
-            outputH={outputH}
-            cropW={crop.width}
-            cropH={crop.height}
-            encoders={encoders}
-            selectedEncoder={selectedEncoder}
-            outputPath={outputPath}
-            disabled={!meta || isRunning || isCancelling}
-            onPresetChange={handlePresetChange}
-            onSizeChange={handleSizeChange}
-            onEncoderChange={setSelectedEncoder}
-            onPathChange={setOutputPath}
-            onBrowse={handleBrowseOutput}
-          />
+            <OutputControlsPanel
+              preset={outputPreset}
+              outputW={outputW}
+              outputH={outputH}
+              cropW={crop.width}
+              cropH={crop.height}
+              encoders={encoders}
+              selectedEncoder={selectedEncoder}
+              outputPath={outputPath}
+              disabled={!meta || isRunning || isCancelling}
+              onPresetChange={handlePresetChange}
+              onSizeChange={handleSizeChange}
+              onEncoderChange={setSelectedEncoder}
+              onPathChange={setOutputPath}
+              onBrowse={handleBrowseOutput}
+            />
+          </div>
 
-          <ProgressPanel
-            isRunning={isRunning}
-            isCancelling={isCancelling}
-            statusMessage={statusMessage}
-            progress={progress}
-            totalDuration={meta?.duration || 0}
-            commandText={commandText}
-            disabled={!meta}
-            onStart={handleStart}
-            onCancel={handleCancel}
-          />
+          {/* Sticky Bottom: Progress & Export Panel */}
+          <div className="shrink-0 p-2.5 bg-bg-panel border-t border-border-subtle/50">
+            <ProgressPanel
+              isRunning={isRunning}
+              isCancelling={isCancelling}
+              statusMessage={statusMessage}
+              progress={progress}
+              totalDuration={meta?.duration || 0}
+              commandText={commandText}
+              disabled={!meta}
+              onStart={handleStart}
+              onCancel={handleCancel}
+            />
+          </div>
         </div>
       </div>
 

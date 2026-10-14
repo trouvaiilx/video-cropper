@@ -6,7 +6,6 @@ import {
   ZoomOut,
   RotateCw,
   RotateCcw,
-  Play,
   Grid,
   CircleX,
   Settings,
@@ -429,18 +428,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <div className="text-[11px] font-mono tabular-nums text-fg-muted min-w-[70px]">
           Zoom: {hasVideo ? `${zoomPercent}%` : '—'}
         </div>
-
-        {onStartExport && (
-          <button
-            onClick={onStartExport}
-            disabled={!hasVideo || isRunning || isCancelling}
-            className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded font-medium tracking-tight transition-colors disabled:opacity-40 shadow-sm ml-1.5"
-            title="Start Export (Ctrl+R)"
-          >
-            <Play size={11} fill="currentColor" />
-            <span>Export</span>
-          </button>
-        )}
 
         <div className="flex-1" />
 
