@@ -1028,14 +1028,6 @@ export const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Status Bar */}
-      <div className="h-6 border-t border-border-subtle bg-bg-panel px-3 flex items-center justify-between text-[11px] text-fg-muted select-none">
-        <span className="truncate tracking-tight">{statusMessage}</span>
-        <span className="font-mono text-[10px] tracking-tight shrink-0">
-          {tools ? 'FFmpeg Ready' : 'FFmpeg Missing'}
-        </span>
-      </div>
-
       {/* Modals */}
       {settingsOpen && (
         <SettingsModal
