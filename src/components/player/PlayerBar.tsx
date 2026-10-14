@@ -259,7 +259,6 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
     }
   };
 
-  const [isVolHovered, setIsVolHovered] = useState(false);
   const [isDraggingVol, setIsDraggingVol] = useState(false);
 
   const handleVolumePointerDown = (e: React.PointerEvent<HTMLInputElement>) => {
@@ -275,6 +274,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
         e.currentTarget.releasePointerCapture(e.pointerId);
       }
     } catch {}
+    e.currentTarget.blur();
     setIsDraggingVol(false);
   };
 
@@ -386,12 +386,8 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             <StepForward size={14} className="text-fg-secondary" />
           </button>
 
-          {/* Audio controls: collapses itself, expands on hover / focus / drag (YouTube style) */}
-          <div
-            className="flex items-center group/vol ml-0.5"
-            onMouseEnter={() => setIsVolHovered(true)}
-            onMouseLeave={() => setIsVolHovered(false)}
-          >
+          {/* Audio controls: collapses itself, expands on hover / focus-visible / drag (YouTube style) */}
+          <div className="flex items-center group/vol ml-0.5">
             <button
               type="button"
               onClick={toggleMute}
@@ -419,9 +415,9 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             {hasAudio && (
               <div
                 className={`overflow-hidden transition-all duration-200 ease-out flex items-center ${
-                  isVolHovered || isDraggingVol
-                    ? 'w-16 opacity-100 ml-1.5'
-                    : 'w-0 opacity-0 ml-0 pointer-events-none group-focus-within/vol:w-16 group-focus-within/vol:opacity-100 group-focus-within/vol:ml-1.5 group-focus-within/vol:pointer-events-auto'
+                  isDraggingVol
+                    ? 'w-16 opacity-100 ml-1.5 pointer-events-auto'
+                    : 'w-0 opacity-0 ml-0 pointer-events-none group-hover/vol:w-16 group-hover/vol:opacity-100 group-hover/vol:ml-1.5 group-hover/vol:pointer-events-auto group-has-[:focus-visible]/vol:w-16 group-has-[:focus-visible]/vol:opacity-100 group-has-[:focus-visible]/vol:ml-1.5 group-has-[:focus-visible]/vol:pointer-events-auto'
                 }`}
               >
                 <input
