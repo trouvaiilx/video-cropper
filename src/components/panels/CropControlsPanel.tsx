@@ -6,7 +6,7 @@ import {
   clampCrop,
   applyAspectRatio,
 } from '../../utils/coordinates';
-import { RotateCcw, RotateCw } from 'lucide-react';
+import { RotateCcw, RotateCw, CircleX } from 'lucide-react';
 
 interface CropControlsPanelProps {
   crop: CropConfig;
@@ -83,40 +83,42 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
 
       <div className="space-y-2.5">
         {/* Rotation Row */}
-        <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-border-subtle/50">
+        <div className="flex items-center gap-2 pb-1.5 border-b border-border-subtle/50">
           <span className="text-fg-secondary text-[11px] w-14 shrink-0">Rotate:</span>
-          <div className="flex items-center gap-1.5 flex-1 justify-end">
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
             <button
               type="button"
               onClick={onRotateCcw}
               disabled={disabled}
-              className="flex items-center gap-1 px-2 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-[11px] font-medium transition-colors disabled:opacity-40"
+              className="flex-1 min-w-0 flex items-center justify-center gap-1 px-1.5 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-[11px] font-medium tracking-tight whitespace-nowrap transition-colors disabled:opacity-40"
               title="Rotate 90° Counter-Clockwise (Ctrl+[)"
             >
-              <RotateCcw size={12} className="text-fg-secondary" />
-              <span>90° Left</span>
+              <RotateCcw size={12} className="text-fg-secondary shrink-0" />
+              <span className="whitespace-nowrap">90° Left</span>
             </button>
             <button
               type="button"
               onClick={onRotateCw}
               disabled={disabled}
-              className="flex items-center gap-1 px-2 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-[11px] font-medium transition-colors disabled:opacity-40"
+              className="flex-1 min-w-0 flex items-center justify-center gap-1 px-1.5 py-1 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary text-[11px] font-medium tracking-tight whitespace-nowrap transition-colors disabled:opacity-40"
               title="Rotate 90° Clockwise (Ctrl+])"
             >
-              <RotateCw size={12} className="text-fg-secondary" />
-              <span>90° Right</span>
+              <RotateCw size={12} className="text-fg-secondary shrink-0" />
+              <span className="whitespace-nowrap">90° Right</span>
             </button>
-            {userRotation !== 0 && (
-              <button
-                type="button"
-                onClick={onResetRotation}
-                disabled={disabled}
-                className="px-1.5 py-1 text-[10px] font-mono font-medium rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 transition-colors disabled:opacity-40"
-                title="Click to reset rotation to 0°"
-              >
-                {userRotation}°
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={onResetRotation}
+              disabled={disabled || userRotation === 0}
+              className={`w-7 h-[26px] p-0 shrink-0 flex items-center justify-center border border-border-subtle rounded transition-colors ${
+                userRotation !== 0 && !disabled
+                  ? 'bg-blue-500/15 text-blue-400 border-blue-500/30 hover:bg-blue-500/25'
+                  : 'bg-bg-input text-fg-muted/40 opacity-40 cursor-not-allowed'
+              }`}
+              title={userRotation !== 0 ? `Reset rotation (${userRotation}° -> 0°)` : 'Rotation is 0°'}
+            >
+              <CircleX size={13} />
+            </button>
           </div>
         </div>
 
@@ -158,7 +160,7 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
         {/* Spinboxes Form */}
         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border-subtle/50">
           <div className="flex items-center gap-2">
-            <span className="text-fg-secondary text-[11px] w-10">X:</span>
+            <span className="text-fg-secondary text-[11px] w-14 shrink-0">X:</span>
             <input
               type="number"
               min={0}
@@ -166,12 +168,12 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
               value={crop.x}
               onChange={(e) => handleSpinChange('x', parseInt(e.target.value) || 0)}
               disabled={disabled}
-              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="w-full min-w-0 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-fg-secondary text-[11px] w-10">Y:</span>
+            <span className="text-fg-secondary text-[11px] w-14 shrink-0">Y:</span>
             <input
               type="number"
               min={0}
@@ -179,12 +181,12 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
               value={crop.y}
               onChange={(e) => handleSpinChange('y', parseInt(e.target.value) || 0)}
               disabled={disabled}
-              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="w-full min-w-0 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-fg-secondary text-[11px] w-10">Width:</span>
+            <span className="text-fg-secondary text-[11px] w-14 shrink-0">Width:</span>
             <input
               type="number"
               min={2}
@@ -192,12 +194,12 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
               value={crop.width}
               onChange={(e) => handleSpinChange('width', parseInt(e.target.value) || 2)}
               disabled={disabled}
-              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="w-full min-w-0 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-fg-secondary text-[11px] w-10">Height:</span>
+            <span className="text-fg-secondary text-[11px] w-14 shrink-0">Height:</span>
             <input
               type="number"
               min={2}
@@ -205,22 +207,9 @@ export const CropControlsPanel: React.FC<CropControlsPanelProps> = ({
               value={crop.height}
               onChange={(e) => handleSpinChange('height', parseInt(e.target.value) || 2)}
               disabled={disabled}
-              className="w-full bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
+              className="w-full min-w-0 bg-bg-input border border-border-subtle rounded px-2 py-1 text-fg-primary text-xs font-mono tabular-nums focus:outline-none focus:border-border-focus disabled:opacity-50"
             />
           </div>
-        </div>
-
-        {/* Readout info */}
-        <div className="text-[11px] text-fg-secondary font-mono tabular-nums pt-1 leading-relaxed">
-          {disabled ? (
-            <span className="text-fg-muted font-normal">No video loaded.</span>
-          ) : (
-            <div>
-              <div>Crop: {crop.width} × {crop.height}</div>
-              <div>Position: X {crop.x}, Y {crop.y}</div>
-              {userRotation !== 0 && <div>Rotation: {userRotation}°</div>}
-            </div>
-          )}
         </div>
       </div>
     </div>

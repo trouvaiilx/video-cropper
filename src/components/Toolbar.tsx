@@ -6,8 +6,8 @@ import {
   ZoomOut,
   RotateCw,
   RotateCcw,
-  Play,
   Grid,
+  CircleX,
   Settings,
   Activity,
   HelpCircle,
@@ -28,6 +28,8 @@ interface ToolbarProps {
   onRotateCcw: () => void;
   onResetRotation: () => void;
   onToggleThirds: () => void;
+  cropView?: boolean;
+  onToggleCropView?: () => void;
   onStartExport?: () => void;
   onOpenSettings: () => void;
   onOpenDiagnostics: () => void;
@@ -40,6 +42,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   showThirds,
   hasVideo,
   userRotation,
+  cropView = false,
   isRunning = false,
   isCancelling = false,
   onOpenVideo,
@@ -50,6 +53,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onRotateCcw,
   onResetRotation,
   onToggleThirds,
+  onToggleCropView,
   onStartExport,
   onOpenSettings,
   onOpenDiagnostics,
@@ -65,9 +69,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         setActiveMenu(null);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActiveMenu(null);
+      }
+    };
     window.addEventListener('mousedown', handleClickOutside);
-    return () => window.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
+
+  const handleMenuClick = (menuName: string) => {
+    setActiveMenu((prev) => (prev === menuName ? null : menuName));
+  };
+
+  const handleMenuMouseEnter = (menuName: string) => {
+    if (activeMenu !== null) {
+      setActiveMenu(menuName);
+    }
+  };
 
   return (
     <div className="flex flex-col border-b border-border-subtle bg-bg-panel select-none">
@@ -79,7 +102,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         {/* File Menu */}
         <div className="relative">
           <button
-            onClick={() => setActiveMenu(activeMenu === 'file' ? null : 'file')}
+            onClick={() => handleMenuClick('file')}
+            onMouseEnter={() => handleMenuMouseEnter('file')}
             className={`px-2 py-0.5 rounded hover:bg-bg-hover text-fg-primary ${
               activeMenu === 'file' ? 'bg-bg-hover' : ''
             }`}
@@ -87,7 +111,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             File
           </button>
           {activeMenu === 'file' && (
-            <div className="absolute top-full left-0 mt-0.5 w-48 bg-bg-panel border border-border-subtle rounded shadow-lg py-1 z-50 text-xs">
+            <div className="absolute top-full left-0 mt-0.5 w-52 min-w-[210px] bg-bg-panel border border-border-subtle rounded shadow-lg py-1 z-50 text-xs">
               <button
                 onClick={() => {
                   setActiveMenu(null);
@@ -95,8 +119,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 }}
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary"
               >
-                <span>Open Video…</span>
-                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+O</span>
+                <span className="whitespace-nowrap">Open Video…</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-3">Ctrl+O</span>
               </button>
               {onStartExport && (
                 <button
@@ -107,8 +131,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   disabled={!hasVideo || isRunning || isCancelling}
                   className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
                 >
-                  <span>Export Video…</span>
-                  <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+R</span>
+                  <span className="whitespace-nowrap">Export Video…</span>
+                  <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-3">Ctrl+R</span>
                 </button>
               )}
               <div className="my-1 border-t border-border-subtle/50" />
@@ -119,8 +143,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 }}
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary"
               >
-                <span>Exit</span>
-                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+Shift+Q</span>
+                <span className="whitespace-nowrap">Exit</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-3">Ctrl+Shift+Q</span>
               </button>
             </div>
           )}
@@ -129,7 +153,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         {/* View Menu */}
         <div className="relative">
           <button
-            onClick={() => setActiveMenu(activeMenu === 'view' ? null : 'view')}
+            onClick={() => handleMenuClick('view')}
+            onMouseEnter={() => handleMenuMouseEnter('view')}
             className={`px-2 py-0.5 rounded hover:bg-bg-hover text-fg-primary ${
               activeMenu === 'view' ? 'bg-bg-hover' : ''
             }`}
@@ -137,7 +162,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             View
           </button>
           {activeMenu === 'view' && (
-            <div className="absolute top-full left-0 mt-0.5 w-56 bg-bg-panel border border-border-subtle rounded shadow-lg py-1 z-50 text-xs">
+            <div className="absolute top-full left-0 mt-0.5 w-68 min-w-[275px] bg-bg-panel border border-border-subtle rounded shadow-lg py-1 z-50 text-xs">
               <button
                 onClick={() => {
                   setActiveMenu(null);
@@ -146,8 +171,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={!hasVideo}
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
               >
-                <span>Fit</span>
-                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+0</span>
+                <span className="whitespace-nowrap">Fit</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">Ctrl+0</span>
               </button>
               <button
                 onClick={() => {
@@ -157,8 +182,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={!hasVideo}
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
               >
-                <span>Zoom In</span>
-                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+=</span>
+                <span className="whitespace-nowrap">Zoom In</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">Ctrl+=</span>
               </button>
               <button
                 onClick={() => {
@@ -168,8 +193,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={!hasVideo}
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
               >
-                <span>Zoom Out</span>
-                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+-</span>
+                <span className="whitespace-nowrap">Zoom Out</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">Ctrl+-</span>
               </button>
               <div className="my-1 border-t border-border-subtle/50" />
               <button
@@ -180,8 +205,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={!hasVideo}
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
               >
-                <span>Rotate 90° Clockwise</span>
-                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+]</span>
+                <span className="whitespace-nowrap">Rotate 90° Clockwise</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">Ctrl+]</span>
               </button>
               <button
                 onClick={() => {
@@ -191,37 +216,62 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={!hasVideo}
                 className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
               >
-                <span>Rotate 90° Counter-Clockwise</span>
-                <span className="text-[10px] text-fg-muted font-mono tracking-tight">Ctrl+[</span>
+                <span className="whitespace-nowrap">Rotate 90° Counter-Clockwise</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">Ctrl+[</span>
               </button>
-              {userRotation !== 0 && (
-                <button
-                  onClick={() => {
-                    setActiveMenu(null);
-                    onResetRotation();
-                  }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary"
-                >
-                  <span>Reset Rotation</span>
-                  <span className="text-[10px] text-fg-muted font-mono tracking-tight">0°</span>
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  setActiveMenu(null);
+                  onResetRotation();
+                }}
+                disabled={!hasVideo || userRotation === 0}
+                className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
+              >
+                <span className="whitespace-nowrap">Reset Rotation</span>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">
+                  {userRotation !== 0 ? `${userRotation}°` : '0°'}
+                </span>
+              </button>
               <div className="my-1 border-t border-border-subtle/50" />
               <button
                 onClick={() => {
                   setActiveMenu(null);
                   onToggleThirds();
                 }}
-                className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex items-center gap-2 text-fg-primary"
+                className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary"
               >
-                <input
-                  type="checkbox"
-                  checked={showThirds}
-                  onChange={() => {}}
-                  className="rounded bg-bg-input border-border-subtle"
-                />
-                <span>Rule-of-thirds grid</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={showThirds}
+                    onChange={() => {}}
+                    className="rounded bg-bg-input border-border-subtle"
+                  />
+                  <span className="whitespace-nowrap">Rule-of-thirds grid</span>
+                </div>
+                <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">G</span>
               </button>
+              {onToggleCropView && (
+                <button
+                  onClick={() => {
+                    setActiveMenu(null);
+                    onToggleCropView();
+                  }}
+                  disabled={!hasVideo}
+                  className="w-full text-left px-3 py-1.5 hover:bg-bg-hover flex justify-between items-center text-fg-primary disabled:opacity-40"
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={cropView}
+                      onChange={() => {}}
+                      className="rounded bg-bg-input border-border-subtle"
+                    />
+                    <span className="whitespace-nowrap">Crop view</span>
+                  </div>
+                  <span className="text-[10px] text-fg-muted font-mono tracking-tight shrink-0 whitespace-nowrap ml-4">F</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -229,7 +279,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         {/* Tools Menu */}
         <div className="relative">
           <button
-            onClick={() => setActiveMenu(activeMenu === 'tools' ? null : 'tools')}
+            onClick={() => handleMenuClick('tools')}
+            onMouseEnter={() => handleMenuMouseEnter('tools')}
             className={`px-2 py-0.5 rounded hover:bg-bg-hover text-fg-primary ${
               activeMenu === 'tools' ? 'bg-bg-hover' : ''
             }`}
@@ -263,7 +314,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         {/* Help Menu */}
         <div className="relative">
           <button
-            onClick={() => setActiveMenu(activeMenu === 'help' ? null : 'help')}
+            onClick={() => handleMenuClick('help')}
+            onMouseEnter={() => handleMenuMouseEnter('help')}
             className={`px-2 py-0.5 rounded hover:bg-bg-hover text-fg-primary ${
               activeMenu === 'help' ? 'bg-bg-hover' : ''
             }`}
@@ -295,6 +347,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         >
           <FolderOpen size={14} className="text-fg-secondary" />
           <span>Open</span>
+        </button>
+
+        <button
+          onClick={onToggleThirds}
+          className={`flex items-center gap-1.5 px-2.5 py-1 border border-border-subtle rounded font-medium tracking-tight transition-colors ${
+            showThirds
+              ? 'bg-bg-hover text-fg-primary border-border-focus'
+              : 'bg-bg-input text-fg-secondary hover:bg-bg-hover'
+          }`}
+          title="Toggle Rule-of-Thirds Grid (G)"
+        >
+          <Grid size={14} />
+          <span>Grid</span>
         </button>
 
         <button
@@ -337,6 +402,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </button>
 
         <button
+          onClick={onResetRotation}
+          disabled={!hasVideo || userRotation === 0}
+          className={`p-1.5 border rounded transition-colors ${
+            hasVideo && userRotation !== 0
+              ? 'bg-blue-500/15 text-blue-400 border-blue-500/30 hover:bg-blue-500/25'
+              : 'bg-bg-input text-fg-muted/40 border-border-subtle opacity-40 cursor-not-allowed'
+          }`}
+          title={hasVideo && userRotation !== 0 ? `Reset rotation (${userRotation}° -> 0°)` : 'Rotation is 0°'}
+        >
+          <CircleX size={14} />
+        </button>
+
+        <button
           onClick={onRotateCw}
           disabled={!hasVideo}
           className="p-1.5 bg-bg-input hover:bg-bg-hover active:bg-bg-input border border-border-subtle rounded text-fg-primary transition-colors disabled:opacity-40"
@@ -345,48 +423,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <RotateCw size={14} className="text-fg-secondary" />
         </button>
 
-        {userRotation !== 0 && (
-          <button
-            onClick={onResetRotation}
-            className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 transition-colors"
-            title="Click to reset rotation to 0°"
-          >
-            {userRotation}°
-          </button>
-        )}
-
         <div className="h-4 w-[1px] bg-border-subtle mx-1" />
 
         <div className="text-[11px] font-mono tabular-nums text-fg-muted min-w-[70px]">
           Zoom: {hasVideo ? `${zoomPercent}%` : '—'}
         </div>
-
-        <div className="h-4 w-[1px] bg-border-subtle mx-1" />
-
-        <button
-          onClick={onToggleThirds}
-          className={`flex items-center gap-1.5 px-2 py-1 border border-border-subtle rounded font-medium tracking-tight transition-colors ${
-            showThirds
-              ? 'bg-bg-hover text-fg-primary border-border-focus'
-              : 'bg-bg-input text-fg-secondary hover:bg-bg-hover'
-          }`}
-          title="Toggle Rule-of-Thirds Grid"
-        >
-          <Grid size={14} />
-          <span>Grid</span>
-        </button>
-
-        {onStartExport && (
-          <button
-            onClick={onStartExport}
-            disabled={!hasVideo || isRunning || isCancelling}
-            className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded font-medium tracking-tight transition-colors disabled:opacity-40 shadow-sm ml-1.5"
-            title="Start Export (Ctrl+R)"
-          >
-            <Play size={11} fill="currentColor" />
-            <span>Export</span>
-          </button>
-        )}
 
         <div className="flex-1" />
 

@@ -328,9 +328,9 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   else if (ready && kind === 'proxy') hint = 'Low-res proxy';
 
   return (
-    <div className="shrink-0 flex flex-col border-t border-border-subtle bg-bg-panel text-xs select-none">
+    <div className="shrink-0 h-[80px] flex flex-col justify-between border-t border-border-subtle bg-bg-panel text-xs select-none">
       {/* Top Row: Playback time indicator and seek bar (left to right) */}
-      <div className="flex items-center gap-2.5 px-3 pt-2 pb-1">
+      <div className="flex items-center gap-2.5 px-3 pt-2.5 pb-1">
         <span className="font-mono tabular-nums text-[11px] text-fg-secondary shrink-0 tracking-tight">
           {formatPlayerTime(time)} / {formatPlayerTime(total)}
         </span>
@@ -353,7 +353,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
       </div>
 
       {/* Bottom Row: Playback & Volume controls on left, Hint & Crop view on right */}
-      <div className="flex items-center justify-between px-3 pb-2 pt-0.5">
+      <div className="flex items-center justify-between px-3 pb-2.5 pt-0.5">
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => step(-1)}
@@ -452,7 +452,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
                 ? 'bg-bg-hover text-fg-primary border-border-focus'
                 : 'bg-bg-input text-fg-secondary hover:bg-bg-hover border-border-subtle'
             }`}
-            title="Show only the cropped area, as it will be exported"
+            title="Show only the cropped area, as it will be exported (F)"
           >
             <Crop size={14} />
             <span>Crop view</span>

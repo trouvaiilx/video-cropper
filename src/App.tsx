@@ -206,8 +206,39 @@ export const App: React.FC = () => {
   const [overwriteModalPath, setOverwriteModalPath] = useState<string | null>(null);
   const [errorModal, setErrorModal] = useState<{ title: string; text: string } | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-
   const toolsRef = useRef<ToolPaths | null>(null);
+  const sidebarScrollRef = useRef<HTMLDivElement>(null);
+  const sidebarContentRef = useRef<HTMLDivElement>(null);
+  const [isSidebarScrollable, setIsSidebarScrollable] = useState<boolean>(false);
+
+  useEffect(() => {
+    const scrollEl = sidebarScrollRef.current;
+    const contentEl = sidebarContentRef.current;
+    if (!scrollEl) return;
+
+    const checkScrollable = () => {
+      const hasOverflow = scrollEl.scrollHeight > scrollEl.clientHeight + 1;
+      setIsSidebarScrollable(hasOverflow);
+    };
+
+    checkScrollable();
+
+    const ro = new ResizeObserver(() => {
+      checkScrollable();
+    });
+
+    ro.observe(scrollEl);
+    if (contentEl) {
+      ro.observe(contentEl);
+    }
+
+    window.addEventListener('resize', checkScrollable);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', checkScrollable);
+    };
+  }, [meta, outputPreset, crop.width, crop.height, userRotation]);
 
   const showNotification = useCallback((item: Omit<NotificationItem, 'id'>) => {
     setNotifications((prev) => {
@@ -783,9 +814,13 @@ export const App: React.FC = () => {
       const target = e.target as HTMLElement | null;
       const isInput =
         target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable);
+        (target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable ||
+          (target.tagName === 'INPUT' &&
+            (target as HTMLInputElement).type !== 'range' &&
+            (target as HTMLInputElement).type !== 'checkbox' &&
+            (target as HTMLInputElement).type !== 'button'));
 
       if (e.ctrlKey && e.shiftKey && (e.key === 'q' || e.key === 'Q')) {
         e.preventDefault();
@@ -822,6 +857,14 @@ export const App: React.FC = () => {
         } else if (e.key === '[') {
           e.preventDefault();
           if (meta) handleRotateCcw();
+        } else if (e.key === 'g' || e.key === 'G') {
+          e.preventDefault();
+          setShowThirds((prev) => !prev);
+        } else if (e.key === 'f' || e.key === 'F') {
+          e.preventDefault();
+          if (meta) {
+            setCropView((prev) => !prev);
+          }
         }
       }
     };
@@ -918,6 +961,7 @@ export const App: React.FC = () => {
       <Toolbar
         zoomPercent={Math.round(zoomPercent * 100)}
         showThirds={showThirds}
+        cropView={cropView}
         hasVideo={!!meta}
         userRotation={userRotation}
         isRunning={isRunning}
@@ -930,6 +974,7 @@ export const App: React.FC = () => {
         onRotateCcw={handleRotateCcw}
         onResetRotation={handleResetRotation}
         onToggleThirds={() => setShowThirds(!showThirds)}
+        onToggleCropView={() => setCropView((v) => !v)}
         onStartExport={meta ? handleStart : undefined}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenDiagnostics={handleOpenDiagnostics}
@@ -982,58 +1027,64 @@ export const App: React.FC = () => {
         </div>
 
         {/* Right: Controls & Info Sidebar */}
-        <div className="w-[340px] shrink-0 border-l border-border-subtle bg-bg-panel overflow-y-auto overflow-x-hidden p-2.5 space-y-2.5">
-          <SourceMetadataPanel meta={meta} userRotation={userRotation} />
+        <div className="w-[340px] shrink-0 border-l border-border-subtle bg-bg-panel flex flex-col h-full overflow-hidden">
+          {/* Scrollable Upper Controls Area */}
+          <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-2.5">
+            <div ref={sidebarContentRef} className="space-y-2.5">
+              <SourceMetadataPanel meta={meta} userRotation={userRotation} />
 
-          <CropControlsPanel
-            crop={crop}
-            selectedRatio={selectedRatio}
-            disabled={!meta || isRunning || isCancelling}
-            userRotation={userRotation}
-            onCropChange={handleCropChange}
-            onRatioChange={handleRatioChange}
-            onRotateCw={handleRotateCw}
-            onRotateCcw={handleRotateCcw}
-            onResetRotation={handleResetRotation}
-          />
+              <CropControlsPanel
+                crop={crop}
+                selectedRatio={selectedRatio}
+                disabled={!meta || isRunning || isCancelling}
+                userRotation={userRotation}
+                onCropChange={handleCropChange}
+                onRatioChange={handleRatioChange}
+                onRotateCw={handleRotateCw}
+                onRotateCcw={handleRotateCcw}
+                onResetRotation={handleResetRotation}
+              />
 
-          <OutputControlsPanel
-            preset={outputPreset}
-            outputW={outputW}
-            outputH={outputH}
-            cropW={crop.width}
-            cropH={crop.height}
-            encoders={encoders}
-            selectedEncoder={selectedEncoder}
-            outputPath={outputPath}
-            disabled={!meta || isRunning || isCancelling}
-            onPresetChange={handlePresetChange}
-            onSizeChange={handleSizeChange}
-            onEncoderChange={setSelectedEncoder}
-            onPathChange={setOutputPath}
-            onBrowse={handleBrowseOutput}
-          />
+              <OutputControlsPanel
+                preset={outputPreset}
+                outputW={outputW}
+                outputH={outputH}
+                cropW={crop.width}
+                cropH={crop.height}
+                encoders={encoders}
+                selectedEncoder={selectedEncoder}
+                outputPath={outputPath}
+                disabled={!meta || isRunning || isCancelling}
+                onPresetChange={handlePresetChange}
+                onSizeChange={handleSizeChange}
+                onEncoderChange={setSelectedEncoder}
+                onPathChange={setOutputPath}
+                onBrowse={handleBrowseOutput}
+              />
+            </div>
+          </div>
 
-          <ProgressPanel
-            isRunning={isRunning}
-            isCancelling={isCancelling}
-            statusMessage={statusMessage}
-            progress={progress}
-            totalDuration={meta?.duration || 0}
-            commandText={commandText}
-            disabled={!meta}
-            onStart={handleStart}
-            onCancel={handleCancel}
-          />
+          {/* Sticky Bottom: Progress & Export Panel */}
+          <div
+            className={`shrink-0 relative z-10 bg-bg-panel transition-shadow duration-200 ${
+              isSidebarScrollable
+                ? 'shadow-[0_-2px_6px_rgba(0,0,0,0.35),0_-1px_2px_rgba(0,0,0,0.2)]'
+                : 'shadow-none'
+            }`}
+          >
+            <ProgressPanel
+              isRunning={isRunning}
+              isCancelling={isCancelling}
+              statusMessage={statusMessage}
+              progress={progress}
+              totalDuration={meta?.duration || 0}
+              commandText={commandText}
+              disabled={!meta}
+              onStart={handleStart}
+              onCancel={handleCancel}
+            />
+          </div>
         </div>
-      </div>
-
-      {/* Status Bar */}
-      <div className="h-6 border-t border-border-subtle bg-bg-panel px-3 flex items-center justify-between text-[11px] text-fg-muted select-none">
-        <span className="truncate tracking-tight">{statusMessage}</span>
-        <span className="font-mono text-[10px] tracking-tight shrink-0">
-          {tools ? 'FFmpeg Ready' : 'FFmpeg Missing'}
-        </span>
       </div>
 
       {/* Modals */}
