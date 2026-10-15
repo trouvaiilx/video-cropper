@@ -311,6 +311,42 @@ pub fn open_video(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn open_url(url: String) -> Result<(), String> {
+    if !url.starts_with("https://") && !url.starts_with("http://") {
+        return Err("Invalid URL protocol".into());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        std::process::Command::new("rundll32")
+            .args(["url.dll,FileProtocolHandler", &url])
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+            .map_err(|e| format!("Failed to open URL: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| format!("Failed to open URL: {}", e))?;
+    }
+
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| format!("Failed to open URL: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 pub fn show_in_folder(path: String) -> Result<(), String> {
     let p = Path::new(&path);
     if !p.exists() {
@@ -375,5 +411,16 @@ mod tests {
         let res = show_in_folder("C:\\this_dir_does_not_exist_at_all_12345\\file.mp4".into());
         assert!(res.is_err());
         assert!(res.unwrap_err().contains("Path not found"));
+    }
+
+    #[test]
+    fn test_open_url_invalid_protocol() {
+        let res = open_url("javascript:alert(1)".into());
+        assert!(res.is_err());
+        assert!(res.unwrap_err().contains("Invalid URL protocol"));
+
+        let res2 = open_url("file:///etc/passwd".into());
+        assert!(res2.is_err());
+        assert!(res2.unwrap_err().contains("Invalid URL protocol"));
     }
 }

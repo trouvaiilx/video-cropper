@@ -39,7 +39,8 @@ pub fn run() {
             set_settings,
             exit_app,
             open_video,
-            show_in_folder
+            show_in_folder,
+            open_url
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
