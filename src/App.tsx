@@ -1032,7 +1032,7 @@ export const App: React.FC = () => {
           </div>
 
           {/* Sticky Bottom: Progress & Export Panel */}
-          <div className="shrink-0 p-2.5 bg-bg-panel border-t border-border-subtle/50">
+          <div className="shrink-0 relative z-10 bg-bg-panel shadow-[0_-2px_6px_rgba(0,0,0,0.35),0_-1px_2px_rgba(0,0,0,0.2)]">
             <ProgressPanel
               isRunning={isRunning}
               isCancelling={isCancelling}
