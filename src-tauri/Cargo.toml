@@ -1,6 +1,6 @@
 [package]
 name = "video-cropper"
-version = "0.2.0"
+version = "0.3.0"
 description = "Minimalist desktop video cropping utility (Rust + Tauri + FFmpeg)"
 authors = ["Video Cropper"]
 edition = "2021"

@@ -47,6 +47,14 @@ file (drop / dialog)
 | `get_settings` / `set_settings` | Frontend → Rust | Reads and persists app configuration to `%APPDATA%` |
 | `get_diagnostics` | Frontend → Rust | Compiles diagnostic report of environment and tools |
 | `exit_app` | Frontend → Rust | Cleanly closes main window or terminates app process |
+| `open_url` | Frontend → Rust | Launches external web URLs (https://) in default system browser |
+
+## UI & Layout Architecture
+
+- **Sticky Bottom Export Bar**: `ProgressPanel` is anchored at the bottom of the right controls sidebar, remaining accessible without scrolling even on smaller, non-maximized windows.
+- **Dynamic Scroll-State Shadow**: A `ResizeObserver` monitors the scrollable sidebar container and its children. An upward drop shadow (`shadow-[0_-2px_6px_rgba(0,0,0,0.35),0_-1px_2px_rgba(0,0,0,0.2)]`) automatically activates only when the sidebar controls overflow and require scrolling, smoothly fading to `shadow-none` when all panels fit cleanly without scrolling.
+- **Pixel-Perfect Alignment**: `PlayerBar` and the collapsed sticky export bar share a fixed `80px` height (`h-[80px]`), ensuring their top dividing lines form an uninterrupted horizontal baseline across the canvas and sidebar dividers.
+- **Hover-Activated Native-Style Menus**: The `Toolbar` menu bar supports hover-to-switch across dropdown menus once an initial menu is opened, mirroring native Windows desktop application behavior.
 
 ## Orientation & Coordinates
 

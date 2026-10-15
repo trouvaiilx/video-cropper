@@ -69,9 +69,9 @@ FFmpeg + ffprobe remain external binaries resolved in order:
    - **Trackpad**: 2-finger swipe pans in 2D without clicking. `Ctrl` + 2-finger swipe zooms centered directly at the cursor.
    - **Mouse**: Scroll wheel zooms centered at the cursor. Middle-click drag or right-click drag pans the canvas.
    - **Keyboard & Toolbar**: `Ctrl + +` / `Ctrl + -` / `Ctrl + 0` (Fit) zoom toward the cursor or screen center.
-6. Preview playback directly in the app with the **Player Bar** (`Space` to toggle play/pause, seek slider, loop toggle).
-7. Choose output **Size** and **Encoder**, set the output file.
-8. **Start** (`Ctrl+R`) — monitor progress %, current time, processing speed, and ETA. **Cancel** anytime: FFmpeg terminates immediately and partial output is cleaned up.
+6. Preview playback directly in the app with the **Player Bar** (`Space` to toggle play/pause, seek slider, frame-step `←` / `→`, YouTube-style expandable volume slider, and crop view `F`). Toggle Rule of Thirds grid anytime with `G`.
+7. Rotate video (`90° Left`, `90° Right`, or reset rotation), choose output **Size** and **Encoder**, and set the destination file.
+8. **Export** (`Ctrl+R`) — conveniently pinned in the sticky bottom panel so you can export without scrolling regardless of window size. Monitor progress %, current time, processing speed, and ETA. The panel is collapsible and dynamically switches to **Cancel** while processing.
 9. **Interactive Completion Toast**: When processing finishes, a persistent toast appears with quick actions:
    - **Open Video**: Opens the output file in the default system media player without console flashes.
    - **Open Explorer**: Opens Windows Explorer and selects/highlights the newly created video file.
@@ -90,14 +90,26 @@ FFmpeg + ffprobe remain external binaries resolved in order:
 | Shift + wheel | Scroll horizontally |
 | Alt + wheel | Scroll vertically in fine steps |
 | Space | Toggle video playback (when video is loaded) |
+| ← / → | Step 1 frame backward / forward |
+| M | Toggle audio mute / unmute |
+| G | Toggle Rule of Thirds grid overlay |
+| F | Toggle Crop View (inspect exact cropped frame) |
 | Ctrl + 0 | Fit canvas to window |
 | Ctrl + = / Ctrl + − | Zoom in / Zoom out toward cursor |
 | Ctrl + O | Open video file dialog |
-| Ctrl + R | Start encoding process |
+| Ctrl + R | Start export process |
 | Ctrl + Shift + Q | Exit application |
 | X / Y / W / H inputs | Exact crop in source display pixels (synced both ways) |
 
 Crop coordinates are always stored in **source display pixels** (post-rotation, exactly what the FFmpeg `crop` filter sees) — zooming and panning never corrupt them.
+
+## UI & Experience Highlights
+
+- **Hover-Activated Menu Bar**: Hovering across top menus (*File*, *View*, *Tools*, *Help*) smoothly switches open dropdowns, matching standard native Windows desktop UX.
+- **Sticky Bottom Export Bar**: Export button is always accessible without scrolling. Includes dynamic scroll-state drop shadow that activates only when the sidebar controls overflow and disables when all panels fit cleanly.
+- **Pixel-Perfect Alignment**: The Player Bar and sticky Export bar share a locked 80px height, forming a continuous, unbroken baseline across the application.
+- **Maximized Workspace**: Bottom footer bloat has been removed to maximize vertical canvas space.
+- **Balanced Controls**: Cleanly aligned XYWH spinboxes and balanced rotation controls with disabled-state reset button.
 
 ## Output Sizes
 
@@ -123,6 +135,8 @@ Audio is stream-copied (`-c:a copy`) whenever the source has audio; audio-less f
 
 Settings (last directories, encoder, ratio, resolution preset, custom FFmpeg paths, grid toggle) are persisted in `%APPDATA%\VideoCropper\settings.json`. Per-video crop rectangles are deliberately never persisted.
 
-## License
+## Author & License
+
+Made with ❤️ by [trouvaiilx](https://github.com/trouvaiilx/video-cropper).
 
 This project is licensed under the [MIT License](LICENSE).

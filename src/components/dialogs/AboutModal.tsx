@@ -25,7 +25,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
           <img src={logoUrl} alt="Video Cropper" className="w-16 h-16 object-contain select-none" />
         </div>
         <div className="text-sm font-semibold tracking-tight text-fg-primary">Video Cropper</div>
-        <div className="text-[11px] text-fg-muted mb-3">v0.2.0 (Rust + Tauri)</div>
+        <div className="text-[11px] text-fg-muted mb-3">v0.3.0 (Rust + Tauri)</div>
 
         <p className="text-fg-secondary text-[11px] leading-relaxed mb-4 text-left">
           Minimalist, high-performance desktop utility for visually cropping video frames on

@@ -249,7 +249,7 @@ pub fn get_diagnostics(
     let os_info = format!("{} {}", std::env::consts::OS, std::env::consts::ARCH);
 
     format!(
-        "Video Cropper 0.2.0 (Rust + Tauri v2)\nOS: {}\nffmpeg: {}\n  {}\nffprobe: {}\n  {}",
+        "Video Cropper 0.3.0 (Rust + Tauri v2)\nOS: {}\nffmpeg: {}\n  {}\nffprobe: {}\n  {}",
         os_info, ff, ff_ver, fp, fp_ver
     )
 }
