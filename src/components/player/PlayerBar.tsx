@@ -259,6 +259,25 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
     }
   };
 
+  const [isDraggingVol, setIsDraggingVol] = useState(false);
+
+  const handleVolumePointerDown = (e: React.PointerEvent<HTMLInputElement>) => {
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+    setIsDraggingVol(true);
+  };
+
+  const handleVolumePointerUp = (e: React.PointerEvent<HTMLInputElement>) => {
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch {}
+    e.currentTarget.blur();
+    setIsDraggingVol(false);
+  };
+
   // Keyboard: Space play/pause, ←/→ one frame, Shift+←/→ one second, M mute/unmute.
   useEffect(() => {
     if (!ready || !shortcutsEnabled) return;
@@ -309,115 +328,137 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   else if (ready && kind === 'proxy') hint = 'Low-res proxy';
 
   return (
-    <div className="h-10 shrink-0 flex items-center gap-2 px-3 border-t border-border-subtle bg-bg-panel text-xs select-none">
-      <button
-        onClick={() => step(-1)}
-        disabled={!ready}
-        className={iconBtn}
-        title="Previous frame (←)"
-      >
-        <StepBack size={14} className="text-fg-secondary" />
-      </button>
+    <div className="shrink-0 flex flex-col border-t border-border-subtle bg-bg-panel text-xs select-none">
+      {/* Top Row: Playback time indicator and seek bar (left to right) */}
+      <div className="flex items-center gap-2.5 px-3 pt-2 pb-1">
+        <span className="font-mono tabular-nums text-[11px] text-fg-secondary shrink-0 tracking-tight">
+          {formatPlayerTime(time)} / {formatPlayerTime(total)}
+        </span>
 
-      <button
-        onClick={togglePlay}
-        disabled={!ready}
-        className={iconBtn}
-        title={playing ? 'Pause (Space)' : 'Play (Space)'}
-      >
-        {playing ? (
-          <Pause size={14} className="text-fg-secondary" />
-        ) : (
-          <Play size={14} className="text-fg-secondary" />
-        )}
-      </button>
-
-      <button
-        onClick={() => step(1)}
-        disabled={!ready}
-        className={iconBtn}
-        title="Next frame (→)"
-      >
-        <StepForward size={14} className="text-fg-secondary" />
-      </button>
-
-      {/* Audio controls */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        <button
-          type="button"
-          onClick={toggleMute}
-          disabled={!ready || !hasAudio}
-          className={iconBtn}
-          title={
-            !hasAudio
-              ? 'No audio stream in video'
-              : userMuted || volume === 0
-              ? 'Unmute (M)'
-              : 'Mute (M)'
-          }
-        >
-          {!hasAudio ? (
-            <VolumeX size={14} className="text-fg-muted opacity-40" />
-          ) : userMuted || volume === 0 ? (
-            <VolumeX size={14} className="text-amber-400" />
-          ) : volume < 0.5 ? (
-            <Volume1 size={14} className="text-fg-secondary" />
-          ) : (
-            <Volume2 size={14} className="text-fg-secondary" />
-          )}
-        </button>
-
-        {hasAudio && (
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={userMuted ? 0 : volume}
-            onChange={handleVolumeChange}
-            disabled={!ready}
-            className="vol-slider w-14 shrink-0"
-            style={{ ['--vp' as string]: `${Math.round((userMuted ? 0 : volume) * 100)}%` }}
-            title={`Volume: ${Math.round((userMuted ? 0 : volume) * 100)}%`}
-          />
-        )}
+        <input
+          type="range"
+          className="seek flex-1 min-w-0"
+          min={0}
+          max={total > 0 ? total : 1}
+          step={frameDt}
+          value={Math.min(time, total > 0 ? total : 1)}
+          disabled={!ready || total <= 0}
+          style={{ ['--p' as string]: `${pct}%` }}
+          onPointerDown={handleSeekPointerDown}
+          onChange={handleSeekChange}
+          onPointerUp={handleSeekPointerUp}
+          onPointerCancel={handleSeekPointerUp}
+          title="Seek"
+        />
       </div>
 
-      <span className="font-mono tabular-nums text-[11px] text-fg-secondary min-w-[96px] text-center tracking-tight">
-        {formatPlayerTime(time)} / {formatPlayerTime(total)}
-      </span>
+      {/* Bottom Row: Playback & Volume controls on left, Hint & Crop view on right */}
+      <div className="flex items-center justify-between px-3 pb-2 pt-0.5">
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => step(-1)}
+            disabled={!ready}
+            className={iconBtn}
+            title="Previous frame (←)"
+          >
+            <StepBack size={14} className="text-fg-secondary" />
+          </button>
 
-      <input
-        type="range"
-        className="seek flex-1 min-w-0"
-        min={0}
-        max={total > 0 ? total : 1}
-        step={frameDt}
-        value={Math.min(time, total > 0 ? total : 1)}
-        disabled={!ready || total <= 0}
-        style={{ ['--p' as string]: `${pct}%` }}
-        onPointerDown={handleSeekPointerDown}
-        onChange={handleSeekChange}
-        onPointerUp={handleSeekPointerUp}
-        onPointerCancel={handleSeekPointerUp}
-        title="Seek"
-      />
+          <button
+            onClick={togglePlay}
+            disabled={!ready}
+            className={iconBtn}
+            title={playing ? 'Pause (Space)' : 'Play (Space)'}
+          >
+            {playing ? (
+              <Pause size={14} className="text-fg-secondary" />
+            ) : (
+              <Play size={14} className="text-fg-secondary" />
+            )}
+          </button>
 
-      {hint && <span className="text-[11px] text-fg-muted shrink-0">{hint}</span>}
+          <button
+            onClick={() => step(1)}
+            disabled={!ready}
+            className={iconBtn}
+            title="Next frame (→)"
+          >
+            <StepForward size={14} className="text-fg-secondary" />
+          </button>
 
-      <button
-        onClick={onToggleCropView}
-        disabled={!hasVideo}
-        className={`flex items-center gap-1.5 px-2.5 py-1 border rounded text-xs font-medium tracking-tight transition-colors disabled:opacity-40 ${
-          cropView
-            ? 'bg-bg-hover text-fg-primary border-border-focus'
-            : 'bg-bg-input text-fg-secondary hover:bg-bg-hover border-border-subtle'
-        }`}
-        title="Show only the cropped area, as it will be exported"
-      >
-        <Crop size={14} />
-        <span>Crop view</span>
-      </button>
+          {/* Audio controls: collapses itself, expands on hover / focus-visible / drag (YouTube style) */}
+          <div className="flex items-center group/vol ml-0.5">
+            <button
+              type="button"
+              onClick={toggleMute}
+              disabled={!ready || !hasAudio}
+              className={iconBtn}
+              title={
+                !hasAudio
+                  ? 'No audio stream in video'
+                  : userMuted || volume === 0
+                  ? 'Unmute (M)'
+                  : 'Mute (M)'
+              }
+            >
+              {!hasAudio ? (
+                <VolumeX size={14} className="text-fg-muted opacity-40" />
+              ) : userMuted || volume === 0 ? (
+                <VolumeX size={14} className="text-amber-400" />
+              ) : volume < 0.5 ? (
+                <Volume1 size={14} className="text-fg-secondary" />
+              ) : (
+                <Volume2 size={14} className="text-fg-secondary" />
+              )}
+            </button>
+
+            {hasAudio && (
+              <div
+                className={`overflow-hidden transition-all duration-200 ease-out flex items-center ${
+                  isDraggingVol
+                    ? 'w-16 opacity-100 ml-1.5 pointer-events-auto'
+                    : 'w-0 opacity-0 ml-0 pointer-events-none group-hover/vol:w-16 group-hover/vol:opacity-100 group-hover/vol:ml-1.5 group-hover/vol:pointer-events-auto group-has-[:focus-visible]/vol:w-16 group-has-[:focus-visible]/vol:opacity-100 group-has-[:focus-visible]/vol:ml-1.5 group-has-[:focus-visible]/vol:pointer-events-auto'
+                }`}
+              >
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={userMuted ? 0 : volume}
+                  onChange={handleVolumeChange}
+                  onPointerDown={handleVolumePointerDown}
+                  onPointerUp={handleVolumePointerUp}
+                  onPointerCancel={handleVolumePointerUp}
+                  disabled={!ready}
+                  className="vol-slider w-14 shrink-0"
+                  style={{ ['--vp' as string]: `${Math.round((userMuted ? 0 : volume) * 100)}%` }}
+                  title={`Volume: ${Math.round((userMuted ? 0 : volume) * 100)}%`}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right side: Hint and Crop View button */}
+        <div className="flex items-center gap-2">
+          {hint && <span className="text-[11px] text-fg-muted shrink-0">{hint}</span>}
+
+          <button
+            onClick={onToggleCropView}
+            disabled={!hasVideo}
+            className={`flex items-center gap-1.5 px-2.5 py-1 border rounded text-xs font-medium tracking-tight transition-colors disabled:opacity-40 ${
+              cropView
+                ? 'bg-bg-hover text-fg-primary border-border-focus'
+                : 'bg-bg-input text-fg-secondary hover:bg-bg-hover border-border-subtle'
+            }`}
+            title="Show only the cropped area, as it will be exported"
+          >
+            <Crop size={14} />
+            <span>Crop view</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
