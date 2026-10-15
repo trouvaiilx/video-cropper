@@ -206,8 +206,39 @@ export const App: React.FC = () => {
   const [overwriteModalPath, setOverwriteModalPath] = useState<string | null>(null);
   const [errorModal, setErrorModal] = useState<{ title: string; text: string } | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-
   const toolsRef = useRef<ToolPaths | null>(null);
+  const sidebarScrollRef = useRef<HTMLDivElement>(null);
+  const sidebarContentRef = useRef<HTMLDivElement>(null);
+  const [isSidebarScrollable, setIsSidebarScrollable] = useState<boolean>(false);
+
+  useEffect(() => {
+    const scrollEl = sidebarScrollRef.current;
+    const contentEl = sidebarContentRef.current;
+    if (!scrollEl) return;
+
+    const checkScrollable = () => {
+      const hasOverflow = scrollEl.scrollHeight > scrollEl.clientHeight + 1;
+      setIsSidebarScrollable(hasOverflow);
+    };
+
+    checkScrollable();
+
+    const ro = new ResizeObserver(() => {
+      checkScrollable();
+    });
+
+    ro.observe(scrollEl);
+    if (contentEl) {
+      ro.observe(contentEl);
+    }
+
+    window.addEventListener('resize', checkScrollable);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', checkScrollable);
+    };
+  }, [meta, outputPreset, crop.width, crop.height, userRotation]);
 
   const showNotification = useCallback((item: Omit<NotificationItem, 'id'>) => {
     setNotifications((prev) => {
@@ -998,41 +1029,49 @@ export const App: React.FC = () => {
         {/* Right: Controls & Info Sidebar */}
         <div className="w-[340px] shrink-0 border-l border-border-subtle bg-bg-panel flex flex-col h-full overflow-hidden">
           {/* Scrollable Upper Controls Area */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden p-2.5 space-y-2.5">
-            <SourceMetadataPanel meta={meta} userRotation={userRotation} />
+          <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-2.5">
+            <div ref={sidebarContentRef} className="space-y-2.5">
+              <SourceMetadataPanel meta={meta} userRotation={userRotation} />
 
-            <CropControlsPanel
-              crop={crop}
-              selectedRatio={selectedRatio}
-              disabled={!meta || isRunning || isCancelling}
-              userRotation={userRotation}
-              onCropChange={handleCropChange}
-              onRatioChange={handleRatioChange}
-              onRotateCw={handleRotateCw}
-              onRotateCcw={handleRotateCcw}
-              onResetRotation={handleResetRotation}
-            />
+              <CropControlsPanel
+                crop={crop}
+                selectedRatio={selectedRatio}
+                disabled={!meta || isRunning || isCancelling}
+                userRotation={userRotation}
+                onCropChange={handleCropChange}
+                onRatioChange={handleRatioChange}
+                onRotateCw={handleRotateCw}
+                onRotateCcw={handleRotateCcw}
+                onResetRotation={handleResetRotation}
+              />
 
-            <OutputControlsPanel
-              preset={outputPreset}
-              outputW={outputW}
-              outputH={outputH}
-              cropW={crop.width}
-              cropH={crop.height}
-              encoders={encoders}
-              selectedEncoder={selectedEncoder}
-              outputPath={outputPath}
-              disabled={!meta || isRunning || isCancelling}
-              onPresetChange={handlePresetChange}
-              onSizeChange={handleSizeChange}
-              onEncoderChange={setSelectedEncoder}
-              onPathChange={setOutputPath}
-              onBrowse={handleBrowseOutput}
-            />
+              <OutputControlsPanel
+                preset={outputPreset}
+                outputW={outputW}
+                outputH={outputH}
+                cropW={crop.width}
+                cropH={crop.height}
+                encoders={encoders}
+                selectedEncoder={selectedEncoder}
+                outputPath={outputPath}
+                disabled={!meta || isRunning || isCancelling}
+                onPresetChange={handlePresetChange}
+                onSizeChange={handleSizeChange}
+                onEncoderChange={setSelectedEncoder}
+                onPathChange={setOutputPath}
+                onBrowse={handleBrowseOutput}
+              />
+            </div>
           </div>
 
           {/* Sticky Bottom: Progress & Export Panel */}
-          <div className="shrink-0 relative z-10 bg-bg-panel shadow-[0_-2px_6px_rgba(0,0,0,0.35),0_-1px_2px_rgba(0,0,0,0.2)]">
+          <div
+            className={`shrink-0 relative z-10 bg-bg-panel transition-shadow duration-200 ${
+              isSidebarScrollable
+                ? 'shadow-[0_-2px_6px_rgba(0,0,0,0.35),0_-1px_2px_rgba(0,0,0,0.2)]'
+                : 'shadow-none'
+            }`}
+          >
             <ProgressPanel
               isRunning={isRunning}
               isCancelling={isCancelling}
