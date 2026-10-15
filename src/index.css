@@ -80,4 +80,35 @@
     outline: 1px solid #3b82f6;
     outline-offset: 2px;
   }
+
+  /* Volume slider: compact 3px track with --vp fill */
+  .vol-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 14px;
+    background: transparent;
+    cursor: pointer;
+  }
+  .vol-slider:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+  .vol-slider::-webkit-slider-runnable-track {
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(to right, #60a5fa var(--vp, 100%), #303030 var(--vp, 100%));
+  }
+  .vol-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 8px;
+    height: 8px;
+    margin-top: -2.5px;
+    border-radius: 50%;
+    background: #e4e4e7;
+    border: none;
+  }
+  .vol-slider:focus-visible::-webkit-slider-thumb {
+    outline: 1px solid #3b82f6;
+    outline-offset: 2px;
+  }
 }

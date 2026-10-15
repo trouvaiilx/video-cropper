@@ -45,53 +45,71 @@ pub fn remove_file_with_retry_sync(path: &Path) {
     }
 }
 
-/// Stable-per-session cache name derived from path, size and mtime.
-fn proxy_name(input: &Path) -> Result<String, String> {
+/// Stable-per-session cache name derived from path, size, mtime, and audio flag.
+fn proxy_name(input: &Path, has_audio: bool) -> Result<String, String> {
     let meta = fs::metadata(input).map_err(|e| format!("Cannot read input file: {}", e))?;
     let mut hasher = DefaultHasher::new();
+    "proxy_v2".hash(&mut hasher);
     input.hash(&mut hasher);
     meta.len().hash(&mut hasher);
     if let Ok(modified) = meta.modified() {
         modified.hash(&mut hasher);
     }
+    has_audio.hash(&mut hasher);
     Ok(format!("{:016x}", hasher.finish()))
 }
 
-pub fn build_proxy_args(input: &str, output: &str) -> Vec<String> {
+pub fn build_proxy_args(input: &str, output: &str, has_audio: bool) -> Vec<String> {
     let scale = format!("scale=w=-2:h='min({},ih)'", PROXY_MAX_HEIGHT);
-    [
-        "-hide_banner",
-        "-v",
-        "error",
-        "-y",
-        "-i",
-        input,
-        "-map",
-        "0:v:0",
-        "-an",
-        "-sn",
-        "-dn",
-        "-vf",
-        &scale,
-        "-c:v",
-        "libx264",
-        "-preset",
-        "ultrafast",
-        "-tune",
-        "fastdecode",
-        "-crf",
-        "30",
-        "-g",
-        "30",
-        "-pix_fmt",
-        "yuv420p",
-        "-movflags",
-        "+faststart",
-        output,
-    ]
-    .iter()
-    .map(|s| s.to_string())
-    .collect()
+    let mut args = vec![
+        "-hide_banner".to_string(),
+        "-v".to_string(),
+        "error".to_string(),
+        "-y".to_string(),
+        "-i".to_string(),
+        input.to_string(),
+        "-map".to_string(),
+        "0:v:0".to_string(),
+    ];
+
+    if has_audio {
+        args.extend([
+            "-map".to_string(),
+            "0:a:0?".to_string(),
+            "-c:a".to_string(),
+            "aac".to_string(),
+            "-b:a".to_string(),
+            "96k".to_string(),
+            "-ac".to_string(),
+            "2".to_string(),
+        ]);
+    } else {
+        args.push("-an".to_string());
+    }
+
+    args.extend([
+        "-sn".to_string(),
+        "-dn".to_string(),
+        "-vf".to_string(),
+        scale,
+        "-c:v".to_string(),
+        "libx264".to_string(),
+        "-preset".to_string(),
+        "ultrafast".to_string(),
+        "-tune".to_string(),
+        "fastdecode".to_string(),
+        "-crf".to_string(),
+        "30".to_string(),
+        "-g".to_string(),
+        "30".to_string(),
+        "-pix_fmt".to_string(),
+        "yuv420p".to_string(),
+        "-movflags".to_string(),
+        "+faststart".to_string(),
+        output.to_string(),
+    ]);
+
+    args
 }
 
 /// Cancel any running proxy job (also invalidates a worker waiting on it).
@@ -106,7 +124,12 @@ pub fn cancel_proxy(slot: &ProxySlot) {
 }
 
 /// Blocking: returns the path of a ready proxy file, generating it if needed.
-pub fn build_proxy(slot: &ProxySlot, input_path: &str, ffmpeg_exe: &str) -> Result<String, String> {
+pub fn build_proxy(
+    slot: &ProxySlot,
+    input_path: &str,
+    ffmpeg_exe: &str,
+    has_audio: bool,
+) -> Result<String, String> {
     let input = Path::new(input_path);
     if !input.is_file() {
         return Err(format!("File not found: {}", input_path));
@@ -115,7 +138,7 @@ pub fn build_proxy(slot: &ProxySlot, input_path: &str, ffmpeg_exe: &str) -> Resu
     let dir = proxy_dir();
     fs::create_dir_all(&dir).map_err(|e| format!("Cannot create proxy folder: {}", e))?;
 
-    let name = proxy_name(input)?;
+    let name = proxy_name(input, has_audio)?;
     let final_path = dir.join(format!("{}.mp4", name));
     if final_path.is_file() {
         return Ok(final_path.to_string_lossy().to_string());
@@ -132,7 +155,7 @@ pub fn build_proxy(slot: &ProxySlot, input_path: &str, ffmpeg_exe: &str) -> Resu
     }
 
     let tmp_path = dir.join(format!("{}.tmp.mp4", name));
-    let args = build_proxy_args(input_path, &tmp_path.to_string_lossy());
+    let args = build_proxy_args(input_path, &tmp_path.to_string_lossy(), has_audio);
 
     let mut cmd = Command::new(ffmpeg_exe);
     cmd.args(&args)
@@ -206,12 +229,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_proxy_args_are_video_only_and_small() {
-        let args = build_proxy_args("in.mkv", "out.mp4");
+    fn test_proxy_args_are_video_only_when_no_audio() {
+        let args = build_proxy_args("in.mkv", "out.mp4", false);
         assert!(args.contains(&"-an".to_string()));
+        assert!(!args.contains(&"-c:a".to_string()));
         assert!(args.iter().any(|a| a.contains("min(480,ih)")));
         assert_eq!(args.last().map(String::as_str), Some("out.mp4"));
         let i = args.iter().position(|a| a == "-i").unwrap();
         assert_eq!(args[i + 1], "in.mkv");
+    }
+
+    #[test]
+    fn test_proxy_args_include_lightweight_audio_when_has_audio() {
+        let args = build_proxy_args("in.mkv", "out.mp4", true);
+        assert!(!args.contains(&"-an".to_string()));
+        assert!(args.contains(&"-c:a".to_string()));
+        assert!(args.contains(&"aac".to_string()));
+        assert!(args.contains(&"96k".to_string()));
+        assert!(args.contains(&"0:a:0?".to_string()));
+        assert!(args.iter().any(|a| a.contains("min(480,ih)")));
+        assert_eq!(args.last().map(String::as_str), Some("out.mp4"));
     }
 }

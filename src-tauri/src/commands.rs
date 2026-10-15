@@ -57,17 +57,19 @@ pub fn allow_playback(app: AppHandle, path: String) -> Result<(), String> {
 }
 
 /// Fallback for sources the webview cannot decode: builds (or reuses) a small
-/// video-only H.264 proxy and returns its path.
+/// H.264 proxy (with lightweight AAC audio if the source has audio) and returns its path.
 #[tauri::command]
 pub async fn build_playback_proxy(
     app: AppHandle,
     state: State<'_, AppState>,
     path: String,
     ffmpeg_exe: String,
+    has_audio: Option<bool>,
 ) -> Result<String, String> {
     let slot = state.proxy.clone();
+    let has_audio = has_audio.unwrap_or(false);
     let proxy_path = tauri::async_runtime::spawn_blocking(move || {
-        run_build_proxy(&slot, &path, &ffmpeg_exe)
+        run_build_proxy(&slot, &path, &ffmpeg_exe, has_audio)
     })
     .await
     .map_err(|e| e.to_string())??;

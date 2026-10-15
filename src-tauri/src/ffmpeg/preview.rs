@@ -3,12 +3,8 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-pub fn preview_seek_time(duration: f64) -> f64 {
-    if duration <= 0.0 {
-        1.0
-    } else {
-        (duration * 0.1).clamp(0.5, 10.0)
-    }
+pub fn preview_seek_time(_duration: f64) -> f64 {
+    0.0
 }
 
 pub fn extract_preview(
@@ -22,7 +18,7 @@ pub fn extract_preview(
         return Err(format!("File not found: {}", input_path));
     }
 
-    let seek = seek_time.unwrap_or(1.0).max(0.0);
+    let seek = seek_time.unwrap_or(0.0).max(0.0);
     let mw = max_width.unwrap_or(1920);
 
     let temp_file = tempfile::Builder::new()
@@ -76,4 +72,16 @@ pub fn extract_preview(
 
     let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
     Ok(format!("data:image/jpeg;base64,{}", b64))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_preview_seek_time_starts_at_first_frame() {
+        assert_eq!(preview_seek_time(0.0), 0.0);
+        assert_eq!(preview_seek_time(10.0), 0.0);
+        assert_eq!(preview_seek_time(120.0), 0.0);
+    }
 }
