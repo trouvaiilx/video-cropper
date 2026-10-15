@@ -20,6 +20,8 @@ interface CropCanvasProps {
   videoReady: boolean;
   /** Render only the cropped region (what will be exported) instead of the editor view. */
   cropView: boolean;
+  /** Additional rotation applied by user in degrees (0, 90, 180, 270). */
+  userRotation?: number;
   onCropChange: (crop: CropConfig) => void;
   onZoomChange: (zoom: number) => void;
 }
@@ -40,6 +42,7 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       videoRef,
       videoReady,
       cropView,
+      userRotation = 0,
       onCropChange,
       onZoomChange,
     },
@@ -48,6 +51,17 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const imageRef = useRef<HTMLImageElement | null>(null);
+
+    const normalizedRotation = ((userRotation % 360) + 360) % 360;
+    const isRotated90or270 = normalizedRotation === 90 || normalizedRotation === 270;
+    const effectiveW = meta ? (isRotated90or270 ? meta.display_height : meta.display_width) : 0;
+    const effectiveH = meta ? (isRotated90or270 ? meta.display_width : meta.display_height) : 0;
+
+    const getPreviewDims = useCallback((): { w: number; h: number } => {
+      if (!imageRef.current) return { w: 0, h: 0 };
+      const img = imageRef.current;
+      return isRotated90or270 ? { w: img.height, h: img.width } : { w: img.width, h: img.height };
+    }, [isRotated90or270]);
 
     // Viewport transform
     const [zoom, setZoom] = useState<number>(1.0);
@@ -74,26 +88,11 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
     const startCropRef = useRef<CropConfig>(crop);
     const panStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-    // Load preview image
-    useEffect(() => {
-      if (!previewSrc) {
-        imageRef.current = null;
-        return;
-      }
-      const img = new Image();
-      img.src = previewSrc;
-      img.onload = () => {
-        imageRef.current = img;
-        fitView();
-      };
-    }, [previewSrc]);
-
     // Fit view calculation
     const fitView = useCallback(() => {
       if (!containerRef.current || !imageRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const imgW = imageRef.current.width;
-      const imgH = imageRef.current.height;
+      const { w: imgW, h: imgH } = getPreviewDims();
       if (imgW <= 0 || imgH <= 0 || rect.width <= 0 || rect.height <= 0) return;
 
       const pad = EDGE_MARGIN_PX * 2;
@@ -108,7 +107,28 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       setZoom(scale);
       setPan({ x: initialPanX, y: initialPanY });
       onZoomChange(scale / scale); // 100% relative to fit
-    }, [onZoomChange]);
+    }, [getPreviewDims, onZoomChange]);
+
+    // Load preview image
+    useEffect(() => {
+      if (!previewSrc) {
+        imageRef.current = null;
+        return;
+      }
+      const img = new Image();
+      img.src = previewSrc;
+      img.onload = () => {
+        imageRef.current = img;
+        fitView();
+      };
+    }, [previewSrc, fitView]);
+
+    // Re-fit view whenever rotation changes
+    useEffect(() => {
+      if (imageRef.current) {
+        fitView();
+      }
+    }, [normalizedRotation, fitView]);
 
     // Cursor position tracking for zoom navigation
     const mousePosRef = useRef<{ x: number; y: number; inside: boolean }>({
@@ -132,8 +152,7 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
         const newZoom = clamp(prevZoom * factor, minZ, maxZ);
         if (Math.abs(newZoom - prevZoom) < 1e-4) return;
 
-        const imgW = imageRef.current.width;
-        const imgH = imageRef.current.height;
+        const { w: imgW, h: imgH } = getPreviewDims();
 
         // When zoomed all the way out to fit view, center the image
         if (newZoom <= minZ + 1e-4) {
@@ -169,7 +188,7 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
         setPan(clamped);
         onZoomChange(newZoom / fitScaleRef.current);
       },
-      [onZoomChange]
+      [getPreviewDims, onZoomChange]
     );
 
     const getZoomTargetPoint = useCallback((): { x: number; y: number } => {
@@ -202,13 +221,14 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
     // Mapping helpers between screen pixels and source display pixels
     const getMapping = useCallback((): PreviewMapping | null => {
       if (!meta || !imageRef.current) return null;
+      const { w: pw, h: ph } = getPreviewDims();
       return new PreviewMapping(
-        meta.display_width,
-        meta.display_height,
-        imageRef.current.width,
-        imageRef.current.height
+        effectiveW,
+        effectiveH,
+        pw,
+        ph
       );
-    }, [meta]);
+    }, [meta, effectiveW, effectiveH, getPreviewDims]);
 
     const screenToPreview = useCallback(
       (sx: number, sy: number) => {
@@ -262,6 +282,30 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       return img ? { src: img, w: img.width, h: img.height } : null;
     };
 
+    const drawRotatedImage = (
+      ctx: CanvasRenderingContext2D,
+      image: CanvasImageSource,
+      dx: number,
+      dy: number,
+      dw: number,
+      dh: number,
+      rot: number
+    ) => {
+      if (rot === 0) {
+        ctx.drawImage(image, dx, dy, dw, dh);
+        return;
+      }
+      ctx.save();
+      ctx.translate(dx + dw / 2, dy + dh / 2);
+      ctx.rotate((rot * Math.PI) / 180);
+      if (rot === 90 || rot === 270) {
+        ctx.drawImage(image, -dh / 2, -dw / 2, dh, dw);
+      } else {
+        ctx.drawImage(image, -dw / 2, -dh / 2, dw, dh);
+      }
+      ctx.restore();
+    };
+
     // Render Canvas
     const draw = useCallback(() => {
       const canvas = canvasRef.current;
@@ -293,8 +337,6 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       if (cropView && meta && crop.width > 0 && crop.height > 0) {
         const s = getDrawSource();
         if (s) {
-          const fx = s.w / meta.display_width;
-          const fy = s.h / meta.display_height;
           const pad = EDGE_MARGIN_PX;
           const scale = Math.min(
             Math.max(10, rect.width - pad * 2) / crop.width,
@@ -305,18 +347,28 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
           const dx = Math.round((rect.width - dw) / 2);
           const dy = Math.round((rect.height - dh) / 2);
 
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(dx, dy, dw, dh);
+          ctx.clip();
+
           ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(
+          const fullImgX = dx - crop.x * scale;
+          const fullImgY = dy - crop.y * scale;
+          const fullImgW = effectiveW * scale;
+          const fullImgH = effectiveH * scale;
+
+          drawRotatedImage(
+            ctx,
             s.src,
-            crop.x * fx,
-            crop.y * fy,
-            crop.width * fx,
-            crop.height * fy,
-            dx,
-            dy,
-            dw,
-            dh
+            fullImgX,
+            fullImgY,
+            fullImgW,
+            fullImgH,
+            normalizedRotation
           );
+          ctx.restore();
+
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
           ctx.lineWidth = 1;
           ctx.strokeRect(dx - 0.5, dy - 0.5, dw + 1, dh + 1);
@@ -326,18 +378,26 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       }
 
       if (imageRef.current && meta) {
-        const img = imageRef.current;
+        const { w: imgW, h: imgH } = getPreviewDims();
         const mapping = getMapping();
 
         // 1. Draw image (live video frame when playback is ready)
         const imgScreen = {
           x: pan.x,
           y: pan.y,
-          w: img.width * zoom,
-          h: img.height * zoom,
+          w: imgW * zoom,
+          h: imgH * zoom,
         };
         const frame = getDrawSource();
-        ctx.drawImage(frame ? frame.src : img, imgScreen.x, imgScreen.y, imgScreen.w, imgScreen.h);
+        drawRotatedImage(
+          ctx,
+          frame ? frame.src : imageRef.current,
+          imgScreen.x,
+          imgScreen.y,
+          imgScreen.w,
+          imgScreen.h,
+          normalizedRotation
+        );
 
         // 2. Compute crop in screen space
         if (mapping && crop.width > 0 && crop.height > 0) {
@@ -448,7 +508,22 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
       }
 
       ctx.restore();
-    }, [previewSrc, meta, crop, zoom, pan, showThirds, getMapping, containerSize, cropView, videoReady]);
+    }, [
+      previewSrc,
+      meta,
+      crop,
+      zoom,
+      pan,
+      showThirds,
+      getMapping,
+      containerSize,
+      cropView,
+      videoReady,
+      normalizedRotation,
+      effectiveW,
+      effectiveH,
+      getPreviewDims,
+    ]);
 
     // Redraw whenever view state changes; keep drawRef pointing at the latest closure.
     drawRef.current = draw;
@@ -517,8 +592,7 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
           });
 
           if (imageRef.current) {
-            const imgW = imageRef.current.width;
-            const imgH = imageRef.current.height;
+            const { w: imgW, h: imgH } = getPreviewDims();
             if (imgW > 0 && imgH > 0) {
               const pad = EDGE_MARGIN_PX * 2;
               const availW = Math.max(10, width - pad);
@@ -557,7 +631,7 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
 
       ro.observe(container);
       return () => ro.disconnect();
-    }, [onZoomChange]);
+    }, [getPreviewDims, onZoomChange]);
 
     // Pointer event handlers
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -622,8 +696,8 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
           y: srcP.y,
           width: 2,
           height: 2,
-          bound_w: meta.display_width,
-          bound_h: meta.display_height,
+          bound_w: effectiveW,
+          bound_h: effectiveH,
         };
         isInteractingRef.current = true;
       }
@@ -687,11 +761,12 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
         const newPanY = mouseY - panStartRef.current.y;
         if (containerRef.current && imageRef.current) {
           const rect = containerRef.current.getBoundingClientRect();
+          const { w: imgW, h: imgH } = getPreviewDims();
           const clamped = clampPan(
             { x: newPanX, y: newPanY },
             zoomRef.current,
-            imageRef.current.width,
-            imageRef.current.height,
+            imgW,
+            imgH,
             rect.width,
             rect.height,
             EDGE_MARGIN_PX
@@ -757,8 +832,8 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
           y,
           width: w,
           height: h,
-          bound_w: meta.display_width,
-          bound_h: meta.display_height,
+          bound_w: effectiveW,
+          bound_h: effectiveH,
         });
         onCropChange(nextCrop);
         return;
@@ -789,8 +864,8 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
           y,
           width: Math.max(2, w),
           height: Math.max(2, h),
-          bound_w: meta.display_width,
-          bound_h: meta.display_height,
+          bound_w: effectiveW,
+          bound_h: effectiveH,
         });
         onCropChange(nextCrop);
       }
@@ -893,8 +968,7 @@ export const CropCanvas = forwardRef<CropCanvasHandle, CropCanvasProps>(
 
         const currentZoom = zoomRef.current;
         const currentPan = panRef.current;
-        const imgW = imageRef.current.width;
-        const imgH = imageRef.current.height;
+        const { w: imgW, h: imgH } = getPreviewDims();
 
         // 1. Pinch-to-zoom (Trackpad) or Ctrl + Wheel (Mouse)
         if (e.ctrlKey) {

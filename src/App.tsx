@@ -16,6 +16,9 @@ import {
   applyAspectRatio,
   computeOutputSize,
   getRatioValue,
+  rotateCropCw,
+  rotateCropCcw,
+  rotateAspectRatio,
 } from './utils/coordinates';
 import { CropCanvas, CropCanvasHandle } from './components/canvas/CropCanvas';
 import { SourceMetadataPanel } from './components/panels/SourceMetadataPanel';
@@ -172,6 +175,7 @@ export const App: React.FC = () => {
   const [outputH, setOutputH] = useState<number>(0);
   const [selectedEncoder, setSelectedEncoder] = useState<string>('libx264');
   const [outputPath, setOutputPath] = useState<string>('');
+  const [userRotation, setUserRotation] = useState<number>(0);
 
   // UI / View state
   const [zoomPercent, setZoomPercent] = useState<number>(100);
@@ -421,6 +425,7 @@ export const App: React.FC = () => {
       }
       try {
         resetPlayback();
+        setUserRotation(0);
         setStatusMessage(`Loading ${fileName}…`);
 
         // Probe metadata
@@ -628,6 +633,63 @@ export const App: React.FC = () => {
     setOutputH(h);
   };
 
+  // Rotation changes
+  const handleRotate = useCallback(
+    (deltaDegrees: number) => {
+      if (!meta) return;
+      const nextRotation = ((userRotation + deltaDegrees) % 360 + 360) % 360;
+      setUserRotation(nextRotation);
+
+      let newCrop: CropConfig;
+      let newRatio: AspectRatio = selectedRatio;
+
+      if (deltaDegrees === 90 || deltaDegrees === -270) {
+        newCrop = rotateCropCw(crop);
+        newRatio = rotateAspectRatio(selectedRatio);
+      } else if (deltaDegrees === -90 || deltaDegrees === 270) {
+        newCrop = rotateCropCcw(crop);
+        newRatio = rotateAspectRatio(selectedRatio);
+      } else {
+        return;
+      }
+
+      setSelectedRatio(newRatio);
+      setCrop(newCrop);
+
+      const [ow, oh] = computeOutputSize(newCrop.width, newCrop.height, outputPreset, outputW, outputH);
+      setOutputW(ow);
+      setOutputH(oh);
+
+      setStatusMessage(`Rotated ${nextRotation}° — ${newCrop.bound_w} × ${newCrop.bound_h}`);
+    },
+    [meta, userRotation, crop, selectedRatio, outputPreset, outputW, outputH]
+  );
+
+  const handleRotateCw = useCallback(() => handleRotate(90), [handleRotate]);
+  const handleRotateCcw = useCallback(() => handleRotate(-90), [handleRotate]);
+
+  const handleResetRotation = useCallback(() => {
+    if (!meta || userRotation === 0) return;
+    const delta = (360 - userRotation) % 360;
+    if (delta === 90) {
+      handleRotate(90);
+    } else if (delta === 180) {
+      const c1 = rotateCropCw(crop);
+      const r1 = rotateAspectRatio(selectedRatio);
+      const c2 = rotateCropCw(c1);
+      const r2 = rotateAspectRatio(r1);
+      setUserRotation(0);
+      setSelectedRatio(r2);
+      setCrop(c2);
+      const [ow, oh] = computeOutputSize(c2.width, c2.height, outputPreset, outputW, outputH);
+      setOutputW(ow);
+      setOutputH(oh);
+      setStatusMessage(`Reset rotation to 0° — ${c2.bound_w} × ${c2.bound_h}`);
+    } else if (delta === 270) {
+      handleRotate(-90);
+    }
+  }, [meta, userRotation, crop, selectedRatio, outputPreset, outputW, outputH, handleRotate]);
+
   // Encoding
   const executeStartEncode = async (allowOverwrite: boolean) => {
     if (!meta || !tools) return;
@@ -643,6 +705,7 @@ export const App: React.FC = () => {
       has_audio: meta.has_audio,
       duration: meta.duration,
       rotation: meta.rotation,
+      user_rotation: userRotation,
       state: 'running',
     };
 
@@ -716,6 +779,13 @@ export const App: React.FC = () => {
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable);
+
       if (e.ctrlKey && e.shiftKey && (e.key === 'q' || e.key === 'Q')) {
         e.preventDefault();
         handleExit();
@@ -737,12 +807,26 @@ export const App: React.FC = () => {
         } else if (e.key === '-') {
           e.preventDefault();
           canvasRef.current?.zoomOut();
+        } else if (e.key === ']') {
+          e.preventDefault();
+          if (meta) handleRotateCw();
+        } else if (e.key === '[') {
+          e.preventDefault();
+          if (meta) handleRotateCcw();
+        }
+      } else if (!isInput) {
+        if (e.key === ']') {
+          e.preventDefault();
+          if (meta) handleRotateCw();
+        } else if (e.key === '[') {
+          e.preventDefault();
+          if (meta) handleRotateCcw();
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleExit, handleOpenFileDialog, handleStart, isRunning, isCancelling, meta]);
+  }, [handleExit, handleOpenFileDialog, handleStart, handleRotateCw, handleRotateCcw, isRunning, isCancelling, meta]);
 
   // Window Drag & Drop (Full Window)
   useEffect(() => {
@@ -834,11 +918,18 @@ export const App: React.FC = () => {
         zoomPercent={Math.round(zoomPercent * 100)}
         showThirds={showThirds}
         hasVideo={!!meta}
+        userRotation={userRotation}
+        isRunning={isRunning}
+        isCancelling={isCancelling}
         onOpenVideo={handleOpenFileDialog}
         onFit={() => canvasRef.current?.fitView()}
         onZoomIn={() => canvasRef.current?.zoomIn()}
         onZoomOut={() => canvasRef.current?.zoomOut()}
+        onRotateCw={handleRotateCw}
+        onRotateCcw={handleRotateCcw}
+        onResetRotation={handleResetRotation}
         onToggleThirds={() => setShowThirds(!showThirds)}
+        onStartExport={meta ? handleStart : undefined}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenDiagnostics={handleOpenDiagnostics}
         onOpenAbout={() => setAboutOpen(true)}
@@ -860,6 +951,7 @@ export const App: React.FC = () => {
               videoRef={videoRef}
               videoReady={playback.status === 'ready'}
               cropView={cropView}
+              userRotation={userRotation}
               onCropChange={handleCropChange}
               onZoomChange={setZoomPercent}
             />
@@ -890,14 +982,18 @@ export const App: React.FC = () => {
 
         {/* Right: Controls & Info Sidebar */}
         <div className="w-[340px] shrink-0 border-l border-border-subtle bg-bg-panel overflow-y-auto overflow-x-hidden p-2.5 space-y-2.5">
-          <SourceMetadataPanel meta={meta} />
+          <SourceMetadataPanel meta={meta} userRotation={userRotation} />
 
           <CropControlsPanel
             crop={crop}
             selectedRatio={selectedRatio}
             disabled={!meta || isRunning || isCancelling}
+            userRotation={userRotation}
             onCropChange={handleCropChange}
             onRatioChange={handleRatioChange}
+            onRotateCw={handleRotateCw}
+            onRotateCcw={handleRotateCcw}
+            onResetRotation={handleResetRotation}
           />
 
           <OutputControlsPanel

@@ -4,10 +4,14 @@ import { formatFileSize, formatSeconds } from '../../utils/time';
 
 interface SourceMetadataPanelProps {
   meta: VideoMetadata | null;
+  userRotation?: number;
 }
 
-export const SourceMetadataPanel: React.FC<SourceMetadataPanelProps> = ({ meta }) => {
+export const SourceMetadataPanel: React.FC<SourceMetadataPanelProps> = ({ meta, userRotation = 0 }) => {
   const filename = meta?.path ? meta.path.split(/[/\\]/).pop() || '' : '—';
+  const isRotated90or270 = userRotation === 90 || userRotation === 270;
+  const currentW = meta ? (isRotated90or270 ? meta.display_height : meta.display_width) : 0;
+  const currentH = meta ? (isRotated90or270 ? meta.display_width : meta.display_height) : 0;
 
   return (
     <div className="border border-border-subtle rounded bg-bg-panel p-3 text-xs overflow-hidden">
@@ -29,9 +33,11 @@ export const SourceMetadataPanel: React.FC<SourceMetadataPanelProps> = ({ meta }
           <span className="text-fg-secondary text-[11px] w-16 shrink-0">Frame:</span>
           <span className="text-fg-primary font-mono text-[11px] tabular-nums">
             {meta
-              ? `${meta.display_width} × ${meta.display_height}${
-                  meta.rotation ? ` (${meta.rotation}°)` : ''
-                }`
+              ? userRotation !== 0
+                ? `${currentW} × ${currentH} (rotated +${userRotation}°)`
+                : `${meta.display_width} × ${meta.display_height}${
+                    meta.rotation ? ` (${meta.rotation}°)` : ''
+                  }`
               : '—'}
           </span>
         </div>

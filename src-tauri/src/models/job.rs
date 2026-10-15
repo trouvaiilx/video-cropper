@@ -38,6 +38,8 @@ pub struct ProcessingJob {
     pub duration: f64,
     pub rotation: i32,
     #[serde(default)]
+    pub user_rotation: i32,
+    #[serde(default)]
     pub state: JobState,
 }
 

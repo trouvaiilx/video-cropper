@@ -229,3 +229,51 @@ export function computeOutputSize(
 export function isUpscale(cropW: number, cropH: number, outW: number, outH: number): boolean {
   return outW > cropW || outH > cropH;
 }
+
+export function rotateCropCw(crop: CropConfig): CropConfig {
+  const newBoundW = crop.bound_h;
+  const newBoundH = crop.bound_w;
+  const x = crop.bound_h - (crop.y + crop.height);
+  const y = crop.x;
+  const width = crop.height;
+  const height = crop.width;
+  return clampCrop({
+    x,
+    y,
+    width,
+    height,
+    bound_w: newBoundW,
+    bound_h: newBoundH,
+  });
+}
+
+export function rotateCropCcw(crop: CropConfig): CropConfig {
+  const newBoundW = crop.bound_h;
+  const newBoundH = crop.bound_w;
+  const x = crop.y;
+  const y = crop.bound_w - (crop.x + crop.width);
+  const width = crop.height;
+  const height = crop.width;
+  return clampCrop({
+    x,
+    y,
+    width,
+    height,
+    bound_w: newBoundW,
+    bound_h: newBoundH,
+  });
+}
+
+export function rotateAspectRatio(ratio: AspectRatio): AspectRatio {
+  if (!ratio.num || !ratio.den) return ratio;
+  if (ratio.num === ratio.den) return ratio;
+  const newNum = ratio.den;
+  const newDen = ratio.num;
+  const preset = PRESET_RATIOS.find((r) => r.num === newNum && r.den === newDen);
+  if (preset) return preset;
+  return {
+    label: `${newNum}:${newDen}`,
+    num: newNum,
+    den: newDen,
+  };
+}
